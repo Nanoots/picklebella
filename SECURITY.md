@@ -72,6 +72,39 @@ attacker wants.
 `*.pem` and `*.key` at the repo root and in both projects. The service-role
 key is only ever read by `server/lib/supabase.ts`.
 
+## Verified
+
+These were tested against the live database (project ) by
+impersonating the  role — the key that ships inside the JS bundle — not
+merely reasoned about.
+
+| Attack with the publishable key | Result |
+|---|---|
+| Insert a booking at a price of my choosing | permission denied |
+| Read all bookings (names, phones, emails) | permission denied |
+| Enumerate promo codes | permission denied |
+| List staff accounts | permission denied |
+| Grant myself admin | permission denied |
+| Set all court rates to zero | permission denied |
+| Call  directly | permission denied |
+| Read staff maintenance blocks | permission denied |
+| Read active courts *(intended to be public)* | 3 rows returned |
+
+Booking integrity, tested at the constraint level:
+
+| Case | Expected | Result |
+|---|---|---|
+| Overlapping booking, same court and date | rejected | rejected |
+| Adjacent booking (12:00 after a 10:00–12:00) | accepted | accepted |
+| Same hours on a different court | accepted | accepted |
+| Rebooking after a cancellation | accepted | accepted |
+| Negative booking amount | rejected | rejected |
+
+**Not yet verified:** the HTTP layer. The API has never run against this
+database, because it needs the service-role key. Everything above is a
+database-level guarantee, which holds regardless of what the API does — but
+the endpoints themselves are still untested at runtime.
+
 ## Rate limits
 
 | Endpoint | Limit |
