@@ -12,7 +12,7 @@ client needs its URL.
 | Local `client/.env.local` and `server/.env` | **Done** — one field left blank, see below |
 | Service role key | **Done** — set in Vercel |
 | Server on Vercel | **Live** — https://picklebella-server-eight.vercel.app (12/12 endpoint checks passing) |
-| Client on Vercel | Not created |
+| Client on Vercel | **Live** — https://picklebella-client.vercel.app |
 | First staff account | Not created |
 
 Project reference values, both safe to publish:
@@ -105,9 +105,22 @@ browser will silently block every API call.
 
 ## 6. Close the loop
 
-Go back to the server project and set `ALLOWED_ORIGINS` to the client's real
-URL, then redeploy. Preview deployments get a fresh URL each time, so add those
-explicitly if you want CORS working on previews.
+On the **server** project set:
+
+```
+ALLOWED_ORIGINS=https://picklebella-client.vercel.app,http://localhost:5173
+```
+
+No trailing slashes, no spaces around the comma. Then **redeploy the server** —
+environment variable changes do not apply to an existing deployment.
+
+Until this matches the client origin exactly, the browser discards every API
+response and the site reports "Could not reach the server". The server is fine
+in that state; curl against it works. Only the browser is blocked, because only
+browsers enforce CORS.
+
+Preview deployments get a fresh URL each time, so add those explicitly if you
+want CORS working on previews.
 
 ## 7. Create your first staff account
 
