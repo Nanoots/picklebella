@@ -1,8 +1,8 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
-import { jsonBody, ok, requireMethod, withApi } from '../../lib/http.js'
-import { requireAdmin } from '../../lib/auth.js'
-import { getHoursConfig, saveSetting } from '../../lib/settings.js'
-import { hoursInput, parse } from '../../lib/validation.js'
+import { jsonBody, ok, requireMethod, withApi } from '../http.js'
+import { requireAdmin } from '../auth.js'
+import { getHoursConfig, saveSetting } from '../settings.js'
+import { hoursInput, parse } from '../validation.js'
 
 /* Weekly opening hours plus holiday overrides. These feed straight into
    availability and into whether a booking is allowed at all, so the schema

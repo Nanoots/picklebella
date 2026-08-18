@@ -9,11 +9,11 @@ import {
   optionalQueryParam,
   requireMethod,
   withApi,
-} from '../../lib/http.js'
-import { requireAdmin } from '../../lib/auth.js'
-import { db } from '../../lib/supabase.js'
-import { mapBooking } from '../../lib/domain.js'
-import { adminBookingQuery, adminCreateBooking, adminUpdateBooking, parse, uuid } from '../../lib/validation.js'
+} from '../http.js'
+import { requireAdmin } from '../auth.js'
+import { db } from '../supabase.js'
+import { mapBooking } from '../domain.js'
+import { adminBookingQuery, adminCreateBooking, adminUpdateBooking, parse, uuid } from '../validation.js'
 
 /* Staff view of the reservation book: list, walk-in create, edit, delete.
    requireAdmin runs before the method is even dispatched, so there is no path

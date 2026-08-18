@@ -1,8 +1,8 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
-import { jsonBody, ok, requireMethod, withApi } from '../../lib/http.js'
-import { requireAdmin } from '../../lib/auth.js'
-import { getPricingConfig, saveSetting } from '../../lib/settings.js'
-import { parse, pricingInput } from '../../lib/validation.js'
+import { jsonBody, ok, requireMethod, withApi } from '../http.js'
+import { requireAdmin } from '../auth.js'
+import { getPricingConfig, saveSetting } from '../settings.js'
+import { parse, pricingInput } from '../validation.js'
 
 /* Peak-hour pricing rules. The multiplier is bounded by the schema so a
    mistyped value cannot multiply every booking on the calendar. */

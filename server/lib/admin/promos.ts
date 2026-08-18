@@ -1,9 +1,9 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
-import { conflict, jsonBody, noContent, notFound, ok, requireMethod, withApi } from '../../lib/http.js'
-import { requireAdmin } from '../../lib/auth.js'
-import { db } from '../../lib/supabase.js'
-import { mapPromo } from '../../lib/domain.js'
-import { parse, promoInput } from '../../lib/validation.js'
+import { conflict, jsonBody, noContent, notFound, ok, requireMethod, withApi } from '../http.js'
+import { requireAdmin } from '../auth.js'
+import { db } from '../supabase.js'
+import { mapPromo } from '../domain.js'
+import { parse, promoInput } from '../validation.js'
 import { z } from 'zod'
 
 /* Promo codes. Staff-only for every operation including read — the codes

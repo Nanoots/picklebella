@@ -1,10 +1,10 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
-import { conflict, jsonBody, noContent, notFound, ok, requireMethod, withApi } from '../../lib/http.js'
-import { requireAdmin } from '../../lib/auth.js'
-import { db } from '../../lib/supabase.js'
-import { mapCourt } from '../../lib/domain.js'
-import { getCourts } from '../../lib/settings.js'
-import { courtId as courtIdSchema, courtInput, parse } from '../../lib/validation.js'
+import { conflict, jsonBody, noContent, notFound, ok, requireMethod, withApi } from '../http.js'
+import { requireAdmin } from '../auth.js'
+import { db } from '../supabase.js'
+import { mapCourt } from '../domain.js'
+import { getCourts } from '../settings.js'
+import { courtId as courtIdSchema, courtInput, parse } from '../validation.js'
 
 export default withApi(async (req: VercelRequest, res: VercelResponse) => {
   const method = requireMethod(req, 'GET', 'POST', 'DELETE')

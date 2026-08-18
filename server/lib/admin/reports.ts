@@ -1,10 +1,10 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
-import { ok, requireMethod, withApi } from '../../lib/http.js'
-import { requireAdmin } from '../../lib/auth.js'
-import { db } from '../../lib/supabase.js'
-import { getCourts, getHoursConfig } from '../../lib/settings.js'
-import { hoursForDate, mapBooking } from '../../lib/domain.js'
-import { parse, reportQuery } from '../../lib/validation.js'
+import { ok, requireMethod, withApi } from '../http.js'
+import { requireAdmin } from '../auth.js'
+import { db } from '../supabase.js'
+import { getCourts, getHoursConfig } from '../settings.js'
+import { hoursForDate, mapBooking } from '../domain.js'
+import { parse, reportQuery } from '../validation.js'
 
 /**
  * Monthly revenue and occupancy figures.

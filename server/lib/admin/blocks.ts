@@ -9,11 +9,11 @@ import {
   optionalQueryParam,
   requireMethod,
   withApi,
-} from '../../lib/http.js'
-import { requireAdmin } from '../../lib/auth.js'
-import { db } from '../../lib/supabase.js'
-import { mapBlock } from '../../lib/domain.js'
-import { blockInput, dateString, parse, uuid } from '../../lib/validation.js'
+} from '../http.js'
+import { requireAdmin } from '../auth.js'
+import { db } from '../supabase.js'
+import { mapBlock } from '../domain.js'
+import { blockInput, dateString, parse, uuid } from '../validation.js'
 
 /* Maintenance / private-hire holds that take a court off sale. */
 export default withApi(async (req: VercelRequest, res: VercelResponse) => {

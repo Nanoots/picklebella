@@ -1,8 +1,8 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
-import { jsonBody, notFound, ok, requireMethod, withApi } from '../../lib/http.js'
-import { requireAdmin } from '../../lib/auth.js'
-import { db } from '../../lib/supabase.js'
-import { memberAccessInput, parse } from '../../lib/validation.js'
+import { jsonBody, notFound, ok, requireMethod, withApi } from '../http.js'
+import { requireAdmin } from '../auth.js'
+import { db } from '../supabase.js'
+import { memberAccessInput, parse } from '../validation.js'
 
 type Member = {
   name: string
