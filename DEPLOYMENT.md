@@ -24,9 +24,13 @@ ANON KEY       sb_publishable_O0F_djYNXDigdMk-9QtlLQ_KWZOJJIu
 
 ## 1. The one secret you need to add
 
-`server/.env` has `SUPABASE_SERVICE_ROLE_KEY=` blank. Get it from
-**Supabase → Settings → API Keys → `service_role` / secret key** and paste it
-into that file.
+It is already set **in Vercel**, so the deployed server works. Your **local**
+`server/.env` still has `SUPABASE_SERVICE_ROLE_KEY=` blank — fill that in only
+if you want to run the server on your own machine. Get it from
+**Supabase → Settings → API Keys → the `sb_secret_...` key**.
+
+Note that legacy JWT API keys are disabled on this project, so the old
+`service_role` key format no longer works. Use the new secret key.
 
 This key bypasses row level security completely. Never put it in the client
 project, never prefix it `VITE_`, never commit it, never paste it into a chat
@@ -85,17 +89,19 @@ New project → same repo → **Root Directory** `client`.
 
 | Name | Value |
 |---|---|
-| `VITE_API_URL` | the server's URL, no trailing slash |
+| `VITE_API_URL` | `https://picklebella-server-eight.vercel.app` |
 | `VITE_SUPABASE_URL` | `https://nudbgiikbquoqeccjaxh.supabase.co` |
 | `VITE_SUPABASE_ANON_KEY` | `sb_publishable_O0F_djYNXDigdMk-9QtlLQ_KWZOJJIu` |
 
-**Before this deploy, edit `client/vercel.json`.** The Supabase host is already
-correct; the API host is still a placeholder, and the browser will block every
-API call until it is real:
+The CSP in `client/vercel.json` already names the live API and Supabase hosts,
+so nothing needs editing before this deploy:
 
 ```
 connect-src 'self' https://picklebella-server-eight.vercel.app https://nudbgiikbquoqeccjaxh.supabase.co
 ```
+
+If the server ever moves to a different URL, this must be updated too or the
+browser will silently block every API call.
 
 ## 6. Close the loop
 

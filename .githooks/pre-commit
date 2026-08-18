@@ -29,21 +29,23 @@ for f in $staged; do
   esac
 done
 
-# Patterns worth stopping. Kept deliberately narrow so it does not cry wolf:
-#   eyJhbGciOi...  a JWT header, base64 for {"alg":"
-#   sb_secret_     Supabase secret key
-#   service_role   a JWT payload naming the role
-#   SUPABASE_SERVICE_ROLE_KEY=<something>   a filled-in secret
+# Patterns worth stopping. Each requires enough trailing key material to be a
+# real credential, so prose that merely NAMES a key format is not flagged —
+# documentation has to be able to say "paste your sb_secret_... key here"
+# without the hook refusing the commit.
+#
+#   eyJhbGciOi + 20 more  a real JWT, not the word "a JWT starting eyJhbGciOi"
+#   sb_secret_ + 10 more  a real Supabase secret key, not "sb_secret_..."
+#   SERVICE_ROLE_KEY=     a filled-in secret in an env file
 for f in $staged; do
   [ -f "$f" ] || continue
 
-  # The hook and the security notes necessarily quote these patterns in order
-  # to describe them, so scanning them would block every edit to this file.
+  # This file necessarily contains the patterns in order to search for them.
   case "$f" in
-    .githooks/*|SECURITY.md) continue ;;
+    .githooks/*) continue ;;
   esac
 
-  if git show ":$f" 2>/dev/null | grep -qE 'eyJhbGciOi|sb_secret_'; then
+  if git show ":$f" 2>/dev/null | grep -qE 'eyJhbGciOi[A-Za-z0-9._-]{20,}|sb_secret_[A-Za-z0-9_-]{10,}'; then
     echo "BLOCKED: $f contains something that looks like a JWT or a Supabase secret key."
     fail=1
   fi
