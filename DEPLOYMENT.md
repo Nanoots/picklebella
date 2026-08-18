@@ -10,8 +10,9 @@ client needs its URL.
 | GitHub repo | **Done** — https://github.com/Nanoots/picklebella |
 | Supabase schema, RLS, functions, seed data | **Done** — applied to project `nudbgiikbquoqeccjaxh` |
 | Local `client/.env.local` and `server/.env` | **Done** — one field left blank, see below |
-| Service role key | **You must add it** |
-| Vercel projects | Not created |
+| Service role key | **Done** — set in Vercel |
+| Server on Vercel | **Live** — https://picklebella-server-eight.vercel.app (12/12 endpoint checks passing) |
+| Client on Vercel | Not created |
 | First staff account | Not created |
 
 Project reference values, both safe to publish:
@@ -93,7 +94,7 @@ correct; the API host is still a placeholder, and the browser will block every
 API call until it is real:
 
 ```
-connect-src 'self' https://REPLACE-ME-API.vercel.app https://nudbgiikbquoqeccjaxh.supabase.co
+connect-src 'self' https://picklebella-server-eight.vercel.app https://nudbgiikbquoqeccjaxh.supabase.co
 ```
 
 ## 6. Close the loop
