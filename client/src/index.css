@@ -1,0 +1,21 @@
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700;9..144,800&family=Outfit:wght@300;400;500;600;700&display=swap');
+@import 'tailwindcss';
+
+html {
+  scroll-behavior: smooth;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+}
+
+*:hover {
+  scrollbar-color: rgba(0, 0, 0, 0.12) transparent;
+}
+
+body {
+  font-family: 'Outfit', sans-serif;
+  background-color: #FAFAF8;
+  margin: 0;
+}

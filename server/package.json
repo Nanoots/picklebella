@@ -1,0 +1,25 @@
+{
+  "name": "picklebella-park-server",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "engines": {
+    "node": "22.x"
+  },
+  "scripts": {
+    "dev": "vercel dev --listen 3000",
+    "typecheck": "tsc --noEmit",
+    "build": "tsc --noEmit",
+    "db:push": "supabase db push",
+    "db:reset": "supabase db reset"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.48.0",
+    "zod": "^3.24.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@vercel/node": "^5.0.0",
+    "typescript": "^5.7.0"
+  }
+}
