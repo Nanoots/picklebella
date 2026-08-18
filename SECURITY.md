@@ -100,10 +100,45 @@ Booking integrity, tested at the constraint level:
 | Rebooking after a cancellation | accepted | accepted |
 | Negative booking amount | rejected | rejected |
 
-**Not yet verified:** the HTTP layer. The API has never run against this
-database, because it needs the service-role key. Everything above is a
-database-level guarantee, which holds regardless of what the API does — but
-the endpoints themselves are still untested at runtime.
+Also confirmed over real HTTP against the live PostgREST endpoint, using the
+publishable key exactly as a browser would send it:
+
+| Request with the publishable key | Result |
+|---|---|
+| `GET /rest/v1/courts` | 200 — 3 courts (intended: public) |
+| `GET /rest/v1/bookings?select=name,email` | 401 — permission denied for table bookings |
+
+**Not yet verified:** our own API. The endpoints under `server/api/` have never
+run against this database. Everything above is enforced by Postgres, so it
+holds no matter what the API does — but the handlers, the signed-quote flow and
+the rate limits are still untested at runtime.
+
+## Incident: service-role key committed (2026-08-18)
+
+Worth recording, because the response is the part people get wrong.
+
+A `service_role` key was pasted into `server/.env.example` — a *committed*
+template — and pushed to a public repository. That key bypasses row level
+security entirely: it could read every customer's contact details and grant
+anyone admin.
+
+What was done, in order of what actually mattered:
+
+1. **Legacy API keys disabled in Supabase.** This is the fix. Verified by
+   replaying the leaked key against the REST API and getting
+   `401 Legacy API keys are disabled`.
+2. The commit was purged from `main` and the template restored with blank
+   values.
+3. A `pre-commit` hook was added (`.githooks/pre-commit`) that refuses to
+   commit JWTs, Supabase secret keys, a filled-in `SERVICE_ROLE_KEY`, or any
+   real `.env` file. Enable it per clone with
+   `git config core.hooksPath .githooks`.
+
+**Purging the commit was not the fix, and on its own would have been useless.**
+Force-pushing leaves dangling objects reachable by SHA, GitHub caches commit
+views, and public repositories are scraped by credential bots within seconds.
+Only rotation makes a leaked key worthless. Treat any secret that has touched a
+remote — or a chat log, or an issue comment — as compromised, and rotate it.
 
 ## Rate limits
 

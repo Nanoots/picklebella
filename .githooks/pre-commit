@@ -1,0 +1,71 @@
+#!/bin/sh
+#
+# Refuses any commit that contains something key-shaped.
+#
+# This exists because a Supabase service_role key was once pasted into
+# server/.env.example and pushed to a public repository. Rotating a leaked key
+# is a bad afternoon; a hook that costs nothing is worth having.
+#
+# Enable it (once per clone):
+#     git config core.hooksPath .githooks
+#
+# Bypass it deliberately, if you are certain:
+#     git commit --no-verify
+
+set -e
+
+staged=$(git diff --cached --name-only --diff-filter=ACM)
+[ -z "$staged" ] && exit 0
+
+fail=0
+
+# A .env file should never be tracked at all. Only .env.example may be.
+for f in $staged; do
+  case "$f" in
+    *.env|*.env.local|*.env.production|*.env.development)
+      echo "BLOCKED: $f looks like a real env file and must not be committed."
+      fail=1
+      ;;
+  esac
+done
+
+# Patterns worth stopping. Kept deliberately narrow so it does not cry wolf:
+#   eyJhbGciOi...  a JWT header, base64 for {"alg":"
+#   sb_secret_     Supabase secret key
+#   service_role   a JWT payload naming the role
+#   SUPABASE_SERVICE_ROLE_KEY=<something>   a filled-in secret
+for f in $staged; do
+  [ -f "$f" ] || continue
+
+  # The hook and the security notes necessarily quote these patterns in order
+  # to describe them, so scanning them would block every edit to this file.
+  case "$f" in
+    .githooks/*|SECURITY.md) continue ;;
+  esac
+
+  if git show ":$f" 2>/dev/null | grep -qE 'eyJhbGciOi|sb_secret_'; then
+    echo "BLOCKED: $f contains something that looks like a JWT or a Supabase secret key."
+    fail=1
+  fi
+
+  if git show ":$f" 2>/dev/null | grep -qE '^[A-Z_]*SERVICE_ROLE_KEY=.+'; then
+    echo "BLOCKED: $f has a non-empty SERVICE_ROLE_KEY. Put real values in .env, not here."
+    fail=1
+  fi
+done
+
+if [ "$fail" -ne 0 ]; then
+  cat <<'MSG'
+
+Nothing was committed.
+
+Real secrets belong in .env (git-ignored) and in the Vercel dashboard.
+Committed templates like .env.example must keep their values blank.
+
+If a secret has already reached a remote, deleting it is not enough —
+rotate it in Supabase, because git keeps history.
+MSG
+  exit 1
+fi
+
+exit 0
