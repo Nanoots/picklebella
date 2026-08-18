@@ -74,8 +74,8 @@ key is only ever read by `server/lib/supabase.ts`.
 
 ## Verified
 
-These were tested against the live database (project ) by
-impersonating the  role — the key that ships inside the JS bundle — not
+These were tested against the live database (project `nudbgiikbquoqeccjaxh`) by
+impersonating the `anon` role — the key that ships inside the JS bundle — not
 merely reasoned about.
 
 | Attack with the publishable key | Result |
@@ -86,7 +86,7 @@ merely reasoned about.
 | List staff accounts | permission denied |
 | Grant myself admin | permission denied |
 | Set all court rates to zero | permission denied |
-| Call  directly | permission denied |
+| Call `create_bookings()` directly | permission denied |
 | Read staff maintenance blocks | permission denied |
 | Read active courts *(intended to be public)* | 3 rows returned |
 
