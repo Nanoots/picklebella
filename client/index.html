@@ -2,11 +2,25 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- viewport-fit=cover lets the sticky bars pad themselves against the
+         iPhone home indicator via env(safe-area-inset-*). -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>PickleBella Park — Book a Pickleball Court</title>
     <meta name="description" content="Book a pickleball court at PickleBella Park. 3 premium courts, instant online booking, open daily." />
-    <link rel="icon" href="/assets/logo.jpg" />
-    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <meta name="theme-color" content="#0F3A1C" />
+    <link rel="icon" type="image/png" href="/assets/favicon.png" />
+    <link rel="apple-touch-icon" href="/assets/favicon.png" />
+
+    <!-- Loaded here rather than through an @import in index.css. An @import is
+         only discovered after the stylesheet itself has downloaded and parsed,
+         which puts the webfont request a full round trip later and leaves the
+         page rendering in a fallback face for longer. -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700;9..144,800&family=Outfit:wght@300;400;500;600;700&display=swap"
+    />
   </head>
   <body>
     <div id="root"></div>

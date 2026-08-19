@@ -45,7 +45,7 @@ export default function AdminLoginModal({ onClose, onSuccess }: Props) {
       style={{ position: 'fixed', inset: 0, zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem', backgroundColor: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(8px)' }}
       onClick={e => e.target === e.currentTarget && onClose()}
     >
-      <div style={{ backgroundColor: 'white', borderRadius: '24px', maxWidth: '380px', width: '100%', overflow: 'hidden', boxShadow: '0 32px 80px rgba(0,0,0,0.3)' }}>
+      <div className="pb-sheet" style={{ backgroundColor: 'white', borderRadius: '24px', maxWidth: '380px', width: '100%', overflowY: 'auto', boxShadow: '0 32px 80px rgba(0,0,0,0.3)' }}>
         <div style={{ backgroundColor: G_DARK, padding: '2rem 2rem 1.75rem', textAlign: 'center' }}>
           <img src={logoImg} alt="PickleBella Park" style={{ width: '52px', height: '52px', borderRadius: '50%', objectFit: 'cover', margin: '0 auto 0.75rem', display: 'block', border: '2px solid rgba(255,255,255,0.15)' }} />
           <p style={{ fontFamily: FONT_DISPLAY, color: 'white', fontSize: '1.1rem', fontWeight: 700, margin: 0 }}>Admin Sign In</p>

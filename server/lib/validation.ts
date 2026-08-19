@@ -61,7 +61,9 @@ export const paymentMethod = z
 /* ---- Requests ---- */
 
 export const availabilityQuery = z.object({
-  courtId,
+  // Optional: omitted means "every active court on this date", which is what
+  // the booking grid and the landing strip both need. See api/availability.ts.
+  courtId: courtId.optional(),
   date: dateString,
 })
 
@@ -79,7 +81,8 @@ export const quoteRequest = z.object({
   // an evening, and an unbounded array is an unbounded amount of work per
   // request.
   slots: z.array(quoteSlot).min(1, 'Pick at least one slot.').max(12, 'You can book up to 12 slots at once.'),
-  paymentMethod,
+  // No paymentMethod: a quote prices every enabled method at once, and the
+  // customer names the one they used when they confirm.
   promoCode: text(40).optional(),
 })
   .refine(
@@ -96,7 +99,10 @@ export const quoteRequest = z.object({
   )
 
 export const createBookingRequest = z.object({
-  quoteId: z.string().min(1).max(2048),
+  // Roomier than it looks: the token carries a per-method price table, so it
+  // grows with the size of the basket.
+  quoteId: z.string().min(1).max(8192),
+  paymentMethod,
   name: text(120).min(1, 'Please enter a name.'),
   phone,
   players: z.number().int().min(1).max(20),

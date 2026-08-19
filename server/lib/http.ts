@@ -49,6 +49,29 @@ export function sendJson(res: VercelResponse, status: number, body: unknown): vo
 }
 
 export const ok = (res: VercelResponse, data: unknown) => sendJson(res, 200, { data })
+
+/**
+ * A 200 that Vercel's edge cache is allowed to keep and re-serve.
+ *
+ * Only for responses that are identical for every caller and contain nothing
+ * personal — the court list and the opening-hours config, which change when an
+ * admin edits them and not otherwise. Anything scoped to a user, and
+ * availability (which changes the moment somebody books), stays `no-store`.
+ *
+ * `s-maxage` applies to the shared CDN cache only; `max-age=0` keeps the
+ * browser asking, so an admin's edit shows up on a refresh rather than being
+ * pinned in one visitor's cache for a minute.
+ */
+export function okCached(res: VercelResponse, data: unknown, opts: { seconds: number; staleFor?: number }): void {
+  const stale = opts.staleFor ?? opts.seconds * 5
+  res.status(200)
+  res.setHeader('Content-Type', 'application/json; charset=utf-8')
+  res.setHeader(
+    'Cache-Control',
+    `public, max-age=0, s-maxage=${opts.seconds}, stale-while-revalidate=${stale}`,
+  )
+  res.send(JSON.stringify({ data }))
+}
 export const created = (res: VercelResponse, data: unknown) => sendJson(res, 201, { data })
 export const noContent = (res: VercelResponse) => {
   res.setHeader('Cache-Control', 'no-store')

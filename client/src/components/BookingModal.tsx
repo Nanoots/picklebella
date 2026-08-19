@@ -6,6 +6,7 @@ import type { Court, Quote } from '../lib/types'
 import { fmtHour, fmtDateLong, fmtMoney } from '../lib/format'
 import { errorMessage } from '../lib/useAsync'
 import { PAYMENT_METHODS } from '../lib/paymentMethods'
+import { useIsMobile } from '../lib/useMediaQuery'
 import { G_DARK, G, PINK, FONT_BODY, FONT_DISPLAY } from '../lib/theme'
 
 const WAIVER_SECTIONS = [
@@ -82,11 +83,13 @@ interface Props {
   /** Courts already loaded by the booking page, for names in the summary. */
   courts: Court[]
   onClose: () => void
-  onSuccess: () => void
 }
 
-export default function BookingModal({ user, slots, courts, onClose, onSuccess }: Props) {
-  const [step, setStep] = useState<1 | 2 | 'success'>(1)
+// There is no onSuccess: paying navigates away to the wallet, and the booking
+// is confirmed on the return page (see PaymentReturn), not here. A modal
+// cannot show a receipt for a payment that happens after it is gone.
+export default function BookingModal({ user, slots, courts, onClose }: Props) {
+  const [step, setStep] = useState<1 | 2>(1)
   const [timeLeft, setTimeLeft] = useState(900)
   const [fullName, setFullName] = useState(user.name)
   const [email, setEmail] = useState(user.email)
@@ -108,6 +111,11 @@ export default function BookingModal({ user, slots, courts, onClose, onSuccess }
   const [quoteError, setQuoteError] = useState('')
   const [quoting, setQuoting] = useState(false)
   const [payError, setPayError] = useState('')
+  // QR Ph does not redirect anywhere — the gateway returns a QR image for the
+  // customer to scan with their own banking app, so it is shown in place.
+  const [qrImage, setQrImage] = useState<string | null>(null)
+  const [qrIntentId, setQrIntentId] = useState('')
+  const isMobile = useIsMobile()
 
   const courtName = useCallback(
     (id: string) => courts.find((c) => c.id === id)?.name ?? id,
@@ -120,9 +128,9 @@ export default function BookingModal({ user, slots, courts, onClose, onSuccess }
     slots.map((s) => ({ courtId: s.courtId, date: s.date, startHour: s.startHour, duration: 1 })),
   )
 
-  // Guards against an older quote response landing after a newer one — the
-  // customer switching payment method twice quickly must not end up seeing the
-  // price for the method they switched away from.
+  // Guards against an older quote response landing after a newer one — two
+  // promo codes tried in quick succession must not leave the modal showing the
+  // total for the one that was typed first.
   const quoteSeq = useRef(0)
 
   const fetchQuote = useCallback(
@@ -133,7 +141,6 @@ export default function BookingModal({ user, slots, courts, onClose, onSuccess }
       try {
         const q = await api.quoteBooking({
           slots: JSON.parse(slotKey),
-          paymentMethod: payMethod,
           promoCode: code || undefined,
         })
         if (seq !== quoteSeq.current) return null
@@ -148,18 +155,17 @@ export default function BookingModal({ user, slots, courts, onClose, onSuccess }
         if (seq === quoteSeq.current) setQuoting(false)
       }
     },
-    [slotKey, payMethod],
+    [slotKey],
   )
 
-  // Re-priced whenever the basket, the payment method, or the applied promo
-  // changes, because each of those changes the total.
+  // Re-priced when the basket or the applied promo changes. NOT when the
+  // payment method changes: one quote already carries a total for each method,
+  // so switching is a lookup below rather than another round trip.
   useEffect(() => {
-    if (step === 'success') return
     void fetchQuote(appliedCode)
-  }, [fetchQuote, appliedCode, step])
+  }, [fetchQuote, appliedCode])
 
   useEffect(() => {
-    if (step === 'success') return
     if (timeLeft <= 0) { onClose(); return }
     const t = setTimeout(() => setTimeLeft(v => v - 1), 1000)
     return () => clearTimeout(t)
@@ -167,12 +173,17 @@ export default function BookingModal({ user, slots, courts, onClose, onSuccess }
 
   const baseTotal = quote?.baseAmount ?? 0
   const discount = quote?.discount ?? 0
-  const finalTotal = quote?.totalAmount ?? 0
   const selPay = PAYMENT_METHODS.find(p => p.id === payMethod)
+
+  /** The server's total for one method, or undefined if it didn't quote one. */
+  const totalFor = (methodId: string) =>
+    quote?.methods.find((m) => m.id === methodId)?.totalAmount
+
+  const finalTotal = totalFor(payMethod) ?? 0
   const timerUrgent = timeLeft < 120
   const promoActive = Boolean(quote?.promoApplied && appliedCode)
 
-  /** Price for one selected slot, taken from the server's quote. */
+  /** List price and peak flag for one selected slot, from the server's quote. */
   function quotedSlot(s: SelectedSlot) {
     return quote?.slots.find(
       (q) => q.courtId === s.courtId && q.date === s.date && q.startHour === s.startHour,
@@ -224,50 +235,76 @@ export default function BookingModal({ user, slots, courts, onClose, onSuccess }
     setPayError('')
 
     try {
-      // The server books the whole basket from the figures inside the signed
-      // quote. Court, time and amount all come from there — nothing this
-      // component holds can change what gets charged.
-      await api.createBooking({
+      // The server holds the whole basket and opens a payment from the figures
+      // inside the signed quote. Court, time and amount all come from there —
+      // nothing this component holds can change what gets charged.
+      //
+      // Nothing is booked yet. The slots are held while the customer is at the
+      // wallet, and the booking only becomes real once the money arrives.
+      const started = await api.startPayment({
         quoteId: quote.quoteId,
+        paymentMethod: payMethod,
         name: fullName.trim(),
         phone: phone.trim(),
         players: 4,
         notes: appliedCode ? `Promo: ${appliedCode}` : '',
       })
-      setStep('success')
+
+      if (started.redirectUrl) {
+        // Off to GCash or Maya. `replace` rather than `assign` so the back
+        // button doesn't land the customer on a dead payment form.
+        window.location.replace(started.redirectUrl)
+        return
+      }
+
+      if (started.qrImageUrl) {
+        setQrImage(started.qrImageUrl)
+        setQrIntentId(started.paymentIntentId)
+        setPaying(false)
+        return
+      }
+
+      // No redirect and no QR: the gateway accepted it outright. The return
+      // page is still the thing that confirms it.
+      window.location.replace(`/?payment=${encodeURIComponent(started.paymentIntentId)}`)
     } catch (err) {
       // 409 means someone took one of these slots while the form was open, and
       // the whole basket was rolled back rather than half-booked. The customer
       // needs to go back and pick again — the grid behind the modal reloads on
       // close.
       setPayError(errorMessage(err))
-    } finally {
       setPaying(false)
     }
   }
 
-  if (step === 'success') {
+  // QR Ph: the customer scans this with their own banking app, then comes back.
+  if (qrImage) {
     return (
-      <div style={{ position: 'fixed', inset: 0, zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem', backgroundColor: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(8px)' }}>
-        <div style={{ backgroundColor: 'white', borderRadius: '20px', maxWidth: '480px', width: '100%', padding: '3rem 2rem', textAlign: 'center', boxShadow: '0 32px 80px rgba(0,0,0,0.25)' }}>
-          <div style={{ width: '72px', height: '72px', borderRadius: '50%', backgroundColor: '#DCFCE7', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.5rem', fontSize: '1.75rem', color: G }}>
-            ✓
-          </div>
-          <h2 style={{ fontFamily: FONT_DISPLAY, color: G_DARK, fontSize: '1.75rem', fontWeight: 700, margin: '0 0 0.5rem' }}>
-            Booking Confirmed!
+      <div style={{ position: 'fixed', inset: 0, zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: isMobile ? '0.75rem' : '1rem', backgroundColor: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(8px)' }}>
+        <div className="pb-sheet" style={{ backgroundColor: 'white', borderRadius: '20px', maxWidth: '420px', width: '100%', overflowY: 'auto', padding: isMobile ? '1.75rem 1.25rem' : '2.25rem 2rem', textAlign: 'center', boxShadow: '0 32px 80px rgba(0,0,0,0.25)' }}>
+          <h2 style={{ fontFamily: FONT_DISPLAY, color: G_DARK, fontSize: isMobile ? '1.3rem' : '1.5rem', fontWeight: 700, margin: '0 0 0.375rem' }}>
+            Scan to pay {fmtMoney(finalTotal)}
           </h2>
-          <p style={{ color: '#6B7280', fontSize: '0.9rem', margin: '0 0 0.375rem' }}>
-            {slots.length} slot{slots.length !== 1 ? 's' : ''} reserved · {fmtMoney(finalTotal)} paid via {selPay?.label}
+          <p style={{ color: '#6B7280', fontSize: '0.85rem', margin: '0 0 1.25rem', lineHeight: 1.6 }}>
+            Open any bank or e-wallet app that supports QR Ph and scan this code.
           </p>
-          <p style={{ color: '#9CA3AF', fontSize: '0.82rem', margin: '0 0 2rem', lineHeight: 1.6 }}>
-            A confirmation has been sent to <strong style={{ color: '#374151' }}>{email}</strong>.<br />
-            See you on the court, {fullName.split(' ')[0]}!
+
+          <img
+            src={qrImage}
+            alt="QR Ph payment code"
+            style={{ width: '100%', maxWidth: '260px', margin: '0 auto 1.25rem', display: 'block', borderRadius: '12px' }}
+          />
+
+          <p style={{ color: '#9CA3AF', fontSize: '0.78rem', margin: '0 0 1.5rem', lineHeight: 1.6 }}>
+            Your courts are held until the timer runs out. This page updates once
+            the payment clears.
           </p>
+
           <button
-            onClick={onSuccess}
-            style={{ backgroundColor: G, color: 'white', border: 'none', borderRadius: '999px', padding: '0.9rem 2.75rem', fontSize: '0.9rem', fontWeight: 600, cursor: 'pointer', fontFamily: FONT_BODY }}
+            onClick={() => window.location.replace(`/?payment=${encodeURIComponent(qrIntentId)}`)}
+            style={{ backgroundColor: G, color: 'white', border: 'none', borderRadius: '999px', padding: '0.85rem 2.25rem', fontSize: '0.9rem', fontWeight: 600, cursor: 'pointer', fontFamily: FONT_BODY, width: '100%' }}
           >
-            Done
+            I've paid — check now
           </button>
         </div>
       </div>
@@ -276,32 +313,47 @@ export default function BookingModal({ user, slots, courts, onClose, onSuccess }
 
   return (
     <div
-      style={{ position: 'fixed', inset: 0, zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem', backgroundColor: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(8px)' }}
+      style={{ position: 'fixed', inset: 0, zIndex: 100, display: 'flex', alignItems: isMobile ? 'flex-end' : 'center', justifyContent: 'center', padding: isMobile ? 0 : '1rem', backgroundColor: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(8px)' }}
       onClick={e => e.target === e.currentTarget && requestClose()}
     >
-      <div style={{ backgroundColor: 'white', borderRadius: '20px', maxWidth: '560px', width: '100%', maxHeight: '92vh', overflowY: 'auto', boxShadow: '0 32px 80px rgba(0,0,0,0.3)' }}>
+      {/* On a phone this is a bottom sheet pinned to the bottom edge: the
+          reachable half of the screen, and no wasted side gutters on a form
+          that already has to scroll. The max-height lives in a class because
+          it needs a `dvh` value (which tracks the viewport as the mobile URL
+          bar slides away) with a `vh` fallback under it. */}
+      <div
+        className="pb-sheet"
+        style={{
+          backgroundColor: 'white',
+          borderRadius: isMobile ? '20px 20px 0 0' : '20px',
+          maxWidth: '560px', width: '100%',
+          overflowY: 'auto', WebkitOverflowScrolling: 'touch',
+          boxShadow: '0 32px 80px rgba(0,0,0,0.3)',
+          paddingBottom: isMobile ? 'env(safe-area-inset-bottom, 0px)' : undefined,
+        }}
+      >
 
         {/* Header */}
-        <div style={{ padding: '1.625rem 1.75rem 0', position: 'sticky', top: 0, backgroundColor: 'white', zIndex: 1, borderRadius: '20px 20px 0 0' }}>
+        <div style={{ padding: isMobile ? '1.1rem 1.1rem 0' : '1.625rem 1.75rem 0', position: 'sticky', top: 0, backgroundColor: 'white', zIndex: 1, borderRadius: '20px 20px 0 0' }}>
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '0.25rem' }}>
             <div style={{ flex: 1 }}>
               <p style={{ margin: '0 0 3px', fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.08em' }}>
                 <span style={{ color: G }}>STEP {step}</span>
                 <span style={{ color: '#9CA3AF' }}> OF 2</span>
               </p>
-              <h2 style={{ fontFamily: FONT_DISPLAY, color: G_DARK, fontSize: '1.45rem', fontWeight: 700, margin: 0 }}>
+              <h2 style={{ fontFamily: FONT_DISPLAY, color: G_DARK, fontSize: isMobile ? '1.2rem' : '1.45rem', fontWeight: 700, margin: 0 }}>
                 {step === 1 ? 'Booking Details' : 'Payment & Confirmation'}
               </h2>
               <p style={{ color: '#9CA3AF', fontSize: '0.78rem', margin: '3px 0 0' }}>
                 {step === 1 ? 'Review your booking and enter your details' : 'Complete payment and confirm your reservation'}
               </p>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', flexShrink: 0, marginLeft: '1rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '0.35rem' : '0.625rem', flexShrink: 0, marginLeft: isMobile ? '0.5rem' : '1rem' }}>
               <div style={{
                 display: 'flex', alignItems: 'center', gap: '6px',
                 backgroundColor: timerUrgent ? '#FEE2E2' : '#F3F4F6',
                 color: timerUrgent ? '#DC2626' : '#374151',
-                borderRadius: '999px', padding: '5px 12px', fontSize: '0.875rem', fontWeight: 700,
+                borderRadius: '999px', padding: isMobile ? '4px 9px' : '5px 12px', fontSize: isMobile ? '0.78rem' : '0.875rem', fontWeight: 700,
               }}>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                   <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
@@ -324,7 +376,7 @@ export default function BookingModal({ user, slots, courts, onClose, onSuccess }
 
         {/* STEP 1 */}
         {step === 1 && (
-          <div style={{ padding: '1.25rem 1.75rem 1.75rem' }}>
+          <div style={{ padding: isMobile ? '1rem 1.1rem 1.5rem' : '1.25rem 1.75rem 1.75rem' }}>
             <div style={{ backgroundColor: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: '10px', padding: '0.875rem 1rem', marginBottom: '1.25rem', display: 'flex', gap: '0.625rem', alignItems: 'flex-start' }}>
               <span style={{ fontSize: '0.95rem', flexShrink: 0, marginTop: '1px' }}>⚠</span>
               <p style={{ fontSize: '0.78rem', color: '#78350F', margin: 0, lineHeight: 1.55 }}>
@@ -413,7 +465,7 @@ export default function BookingModal({ user, slots, courts, onClose, onSuccess }
 
         {/* STEP 2 */}
         {step === 2 && (
-          <div style={{ padding: '1.25rem 1.75rem 1.75rem' }}>
+          <div style={{ padding: isMobile ? '1rem 1.1rem 1.5rem' : '1.25rem 1.75rem 1.75rem' }}>
             {/* A banned account is refused by the server on both /api/quote and
                 /api/bookings, so the block is not something this component has to
                 know about in advance — it surfaces here as a plain error. */}
@@ -425,7 +477,7 @@ export default function BookingModal({ user, slots, courts, onClose, onSuccess }
 
             <div style={{ border: '1px solid #E5E7EB', borderRadius: '12px', padding: '1.5rem', textAlign: 'center', marginBottom: '1.25rem' }}>
               <p style={{ fontSize: '0.62rem', fontWeight: 700, color: '#9CA3AF', letterSpacing: '0.16em', textTransform: 'uppercase', margin: '0 0 0.25rem' }}>PAY EXACTLY</p>
-              <p style={{ fontFamily: FONT_DISPLAY, fontSize: '2.75rem', fontWeight: 800, color: '#111827', margin: 0, lineHeight: 1 }}>
+              <p style={{ fontFamily: FONT_DISPLAY, fontSize: isMobile ? '2.15rem' : '2.75rem', fontWeight: 800, color: '#111827', margin: 0, lineHeight: 1 }}>
                 {quote ? fmtMoney(finalTotal) : quoting ? '…' : '—'}
               </p>
               {promoActive && discount > 0 && (
@@ -477,17 +529,18 @@ export default function BookingModal({ user, slots, courts, onClose, onSuccess }
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                 {PAYMENT_METHODS.map(pm => {
                   const selected = payMethod === pm.id && !pm.disabled
-                  // Only the selected method has a server-quoted total. Showing a
-                  // locally-computed figure for the others would be exactly the
-                  // "browser decides the price" habit this rewrite removes.
+                  // Every row shows a real total, because the quote priced all
+                  // of them. The figure is still the server's — this reads it
+                  // out of the signed quote rather than working out a fee here.
+                  const rowTotal = totalFor(pm.id)
                   return (
                     <button
                       key={pm.id}
                       disabled={pm.disabled}
                       onClick={() => !pm.disabled && setPayMethod(pm.id)}
                       style={{
-                        display: 'flex', alignItems: 'center', gap: '0.875rem',
-                        padding: '0.875rem 1rem', borderRadius: '12px', textAlign: 'left',
+                        display: 'flex', alignItems: 'center', gap: isMobile ? '0.6rem' : '0.875rem',
+                        padding: isMobile ? '0.8rem 0.75rem' : '0.875rem 1rem', borderRadius: '12px', textAlign: 'left',
                         border: `1.5px solid ${selected ? G : '#E5E7EB'}`,
                         backgroundColor: selected ? '#F0FDF4' : pm.disabled ? '#FAFAFA' : 'white',
                         cursor: pm.disabled ? 'not-allowed' : 'pointer', transition: 'all 0.15s',
@@ -503,16 +556,16 @@ export default function BookingModal({ user, slots, courts, onClose, onSuccess }
                           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" strokeWidth="2"><rect x="1" y="4" width="22" height="16" rx="2" /><line x1="1" y1="10" x2="23" y2="10" /></svg>
                         </div>
                       )}
-                      <span style={{ flex: 1, fontSize: '0.875rem', fontWeight: 600, color: pm.disabled ? '#9CA3AF' : '#111827' }}>
+                      <span style={{ flex: 1, minWidth: 0, fontSize: isMobile ? '0.82rem' : '0.875rem', fontWeight: 600, color: pm.disabled ? '#9CA3AF' : '#111827' }}>
                         {pm.label}
                       </span>
-                      <span style={{ fontSize: '0.85rem', fontWeight: 700, color: pm.disabled ? '#D1D5DB' : '#111827' }}>
+                      <span style={{ fontSize: isMobile ? '0.8rem' : '0.85rem', fontWeight: 700, color: pm.disabled ? '#D1D5DB' : '#111827', flexShrink: 0, whiteSpace: 'nowrap' }}>
                         {pm.disabled ? (
                           <span style={{ fontSize: '0.65rem', letterSpacing: '0.08em', color: '#9CA3AF' }}>COMING SOON</span>
-                        ) : selected ? (
-                          quote ? fmtMoney(finalTotal) : '…'
+                        ) : rowTotal !== undefined ? (
+                          fmtMoney(rowTotal)
                         ) : (
-                          <span style={{ fontSize: '0.7rem', color: '#9CA3AF', fontWeight: 500 }}>Select to price</span>
+                          <span style={{ fontSize: '0.7rem', color: '#9CA3AF', fontWeight: 500 }}>…</span>
                         )}
                       </span>
                     </button>
@@ -565,13 +618,13 @@ export default function BookingModal({ user, slots, courts, onClose, onSuccess }
                 }}
               >
                 {paying ? (
-                  <>Processing…</>
+                  <>Opening {selPay?.label ?? 'payment'}…</>
                 ) : (
                   <>
                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                       <rect x="1" y="4" width="22" height="16" rx="2" ry="2" /><line x1="1" y1="10" x2="23" y2="10" />
                     </svg>
-                    Pay Now
+                    {payMethod === 'instapay' ? 'Show QR Ph code' : `Pay with ${selPay?.label ?? 'wallet'}`}
                   </>
                 )}
               </button>

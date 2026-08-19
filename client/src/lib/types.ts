@@ -70,7 +70,13 @@ export type Booking = {
   notes: string
   paymentMethod: string
   amount: number
-  status: 'paid' | 'cancelled'
+  /**
+   * pending   — the customer is at the payment gateway; the slot is held
+   * paid      — money received
+   * failed    — the payment did not complete, or the hold lapsed
+   * cancelled — called off after payment
+   */
+  status: 'pending' | 'paid' | 'failed' | 'cancelled'
   createdAt: string
 }
 
@@ -116,20 +122,46 @@ export type QuoteSlot = {
   startHour: number
   duration: number
   baseAmount: number
-  amount: number
   peak: boolean
+}
+
+/** What one payment method costs for a quoted basket. Priced by the server. */
+export type QuoteMethodPrice = {
+  id: string
+  label: string
+  feeAmount: number
+  totalAmount: number
 }
 
 // A price quote is always produced by the SERVER. The client displays it and
 // echoes back the quote id; it never computes what a booking should cost.
+//
+// One quote carries a price for every enabled payment method, so switching
+// between them is a local lookup rather than another request — and still not
+// a calculation the browser is trusted with.
+/** What the server hands back when a payment has been opened. */
+export type PaymentStart = {
+  bookings: Booking[]
+  paymentIntentId: string
+  /** Where to send the customer. Null for QR Ph, which returns an image. */
+  redirectUrl: string | null
+  qrImageUrl: string | null
+  expiresAt: string
+}
+
+export type PaymentStatus = {
+  status: 'paid' | 'pending' | 'failed'
+  /** True when this request is what confirmed it (the webhook hadn't landed). */
+  settledNow: boolean
+  bookings: Booking[]
+}
+
 export type Quote = {
   quoteId: string
   slots: QuoteSlot[]
   baseAmount: number
   discount: number
-  feeAmount: number
-  totalAmount: number
-  paymentMethod: string
+  methods: QuoteMethodPrice[]
   promoApplied: boolean
   expiresAt: string // ISO timestamp
 }

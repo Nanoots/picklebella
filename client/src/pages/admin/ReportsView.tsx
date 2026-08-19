@@ -5,9 +5,10 @@ import type { MonthlyReport } from '../../lib/types'
 import { fmtMoney, fmtHour, todayStr } from '../../lib/format'
 import { useAsync } from '../../lib/useAsync'
 import { ErrorBlock, LoadingBlock } from '../../components/States'
-import { G, BLUE, PINK, FONT_BODY } from '../../lib/theme'
-import { StatCard, SectionCard, MonthYearPicker, PaymentMethodTag } from './shared'
-import { LineChart, BarChart } from './charts'
+import { G, FONT_BODY } from '../../lib/theme'
+import { getPaymentMethod } from '../../lib/paymentMethods'
+import { StatCard, SectionCard, MonthYearPicker } from './shared'
+import { AreaChart, ColumnChart, HBarChart, VIZ } from './charts'
 
 const EMPTY_REPORT: MonthlyReport = {
   bookingsCount: 0,
@@ -51,11 +52,28 @@ export default function ReportsView() {
       <span style={{ opacity: 0.7 }}>{d.fullDate}</span>
     </div>
   )
-  const occupancyData = report.occupancyByCourt.map((c) => ({ label: c.courtName, value: Math.round(c.pctOfOpenHours * 10) / 10 }))
-  const peakHoursData = report.hourlyBookingCounts
-    .map((count, hour) => ({ hour, count }))
-    .filter((h) => h.hour >= 0)
-    .map((h) => ({ label: fmtHour(h.hour).replace(':00', ''), value: h.count }))
+  const occupancyData = report.occupancyByCourt.map((c) => ({
+    label: c.courtName,
+    value: Math.round(c.pctOfOpenHours * 10) / 10,
+  }))
+
+  // Sorted biggest-first: with named categories the ranking is the story, and
+  // an alphabetical or id order hides it.
+  const paymentData = [...report.revenueByPaymentMethod]
+    .sort((a, b) => b.amount - a.amount)
+    .map((p) => ({ label: getPaymentMethod(p.method)?.label ?? p.method, value: p.amount }))
+
+  // Trimmed to the hours the venue is actually open. Plotting midnight to 5am
+  // as a run of empty columns is a third of the chart carrying no information.
+  const firstOpen = report.hourlyBookingCounts.findIndex((c) => c > 0)
+  const lastOpen = report.hourlyBookingCounts.reduce((last, c, i) => (c > 0 ? i : last), -1)
+  const peakHoursData = (firstOpen === -1
+    ? []
+    : report.hourlyBookingCounts.slice(Math.max(firstOpen - 1, 0), Math.min(lastOpen + 2, 24)).map((count, i) => ({
+        hour: Math.max(firstOpen - 1, 0) + i,
+        count,
+      }))
+  ).map((h) => ({ label: fmtHour(h.hour).replace(':00', ''), value: h.count }))
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
@@ -100,7 +118,16 @@ export default function ReportsView() {
             <StatCard label="Booked Hours" value={report.bookedHours.toFixed(1)} sub="across all courts" />
           </div>
           <SectionCard title="Daily revenue" subtitle="Paid court revenue by day this month">
-            <LineChart data={dailyRevenueData} color={G} valueFormatter={fmtMoney} labelEvery={3} renderTooltip={revenueTooltip} />
+            <AreaChart
+              data={dailyRevenueData}
+              color={VIZ.green}
+              valueFormatter={fmtMoney}
+              labelEvery={3}
+              renderTooltip={revenueTooltip}
+              categoryHeading="Day of month"
+              valueHeading="Revenue"
+              emptyMessage="No paid bookings this month."
+            />
           </SectionCard>
         </>
       )}
@@ -108,31 +135,59 @@ export default function ReportsView() {
       {state.data && tab === 'revenue' && (
         <>
           <SectionCard title="Daily revenue" subtitle="Paid court revenue by day this month">
-            <LineChart data={dailyRevenueData} color={G} height={260} valueFormatter={fmtMoney} labelEvery={3} renderTooltip={revenueTooltip} />
+            <AreaChart
+              data={dailyRevenueData}
+              color={VIZ.green}
+              height={270}
+              valueFormatter={fmtMoney}
+              labelEvery={3}
+              renderTooltip={revenueTooltip}
+              categoryHeading="Day of month"
+              valueHeading="Revenue"
+              emptyMessage="No paid bookings this month."
+            />
           </SectionCard>
           <SectionCard title="Revenue by payment method" subtitle="Paid bookings this period">
-            <div className="flex flex-col">
-              {report.revenueByPaymentMethod.map((p) => (
-                <div key={p.method} className="flex items-center justify-between py-2.5 border-b border-gray-50 last:border-0">
-                  <span className="text-sm text-gray-700"><PaymentMethodTag methodId={p.method} /></span>
-                  <span className="text-sm font-bold text-gray-900">{fmtMoney(p.amount)}</span>
-                </div>
-              ))}
-              {report.revenueByPaymentMethod.length === 0 && <div className="text-center text-gray-400 text-sm py-8">No paid revenue this period.</div>}
-            </div>
+            <HBarChart
+              data={paymentData}
+              color={VIZ.blue}
+              valueFormatter={fmtMoney}
+              categoryHeading="Method"
+              valueHeading="Revenue"
+              emptyMessage="No paid revenue this period."
+            />
           </SectionCard>
         </>
       )}
 
       {state.data && tab === 'occupancy' && (
         <SectionCard title="Court occupancy" subtitle="Percent of open hours booked this period">
-          <BarChart data={occupancyData} color={PINK} valueFormatter={(v) => `${v}%`} />
+          {/* Fixed 0–100 scale: occupancy is a share, so a court at 12% must
+              look like a court at 12% rather than filling the bar because it
+              happens to be the busiest one this month. */}
+          <HBarChart
+            data={occupancyData}
+            color={VIZ.pink}
+            max={100}
+            valueFormatter={(v) => `${v}%`}
+            categoryHeading="Court"
+            valueHeading="Occupancy"
+            emptyMessage="No court activity this period."
+          />
         </SectionCard>
       )}
 
       {state.data && tab === 'peak' && (
         <SectionCard title="Peak hours" subtitle="Bookings by hour of day this period">
-          <BarChart data={peakHoursData} color={BLUE} valueFormatter={(v) => `${v} booking${v === 1 ? '' : 's'}`} />
+          <ColumnChart
+            data={peakHoursData}
+            color={VIZ.amber}
+            height={240}
+            valueFormatter={(v) => `${v} booking${v === 1 ? '' : 's'}`}
+            categoryHeading="Hour"
+            valueHeading="Bookings"
+            emptyMessage="No bookings this period."
+          />
         </SectionCard>
       )}
     </div>

@@ -8,7 +8,7 @@
 
 export type CourtType = 'Indoor' | 'Outdoor'
 export type SlotStatus = 'available' | 'booked' | 'blocked' | 'closed'
-export type BookingStatus = 'paid' | 'cancelled'
+export type BookingStatus = 'pending' | 'paid' | 'failed' | 'cancelled'
 
 export type Court = {
   id: string
@@ -106,11 +106,22 @@ export const DEFAULT_PRICING: PricingConfig = {
    This lives on the server because it is an input to the price. The client has
    a copy for display only (lib/paymentMethods.ts); the total that gets charged
    is always the one computed here. */
-export const PAYMENT_METHODS: Record<string, { label: string; feeRate: number; enabled: boolean }> = {
-  instapay: { label: 'QR Ph (InstaPay)', feeRate: 0.0134, enabled: true },
-  gcash: { label: 'GCash', feeRate: 0.0223, enabled: true },
-  maya: { label: 'Maya', feeRate: 0.0179, enabled: true },
-  card: { label: 'Credit / Debit Card', feeRate: 0, enabled: false },
+/**
+ * `gateway` is PayMongo's own name for the method, which is not always ours:
+ * we call it "instapay" because that is what the customer sees on the QR, and
+ * PayMongo calls it "qrph". Card is disabled because a card payment method has
+ * to be created in the BROWSER with the publishable key so card numbers never
+ * reach this server — a different flow from the e-wallets, not just another
+ * entry in this table.
+ */
+export const PAYMENT_METHODS: Record<
+  string,
+  { label: string; feeRate: number; enabled: boolean; gateway: string }
+> = {
+  instapay: { label: 'QR Ph (InstaPay)', feeRate: 0.0134, enabled: true, gateway: 'qrph' },
+  gcash: { label: 'GCash', feeRate: 0.0223, enabled: true, gateway: 'gcash' },
+  maya: { label: 'Maya', feeRate: 0.0179, enabled: true, gateway: 'maya' },
+  card: { label: 'Credit / Debit Card', feeRate: 0, enabled: false, gateway: 'card' },
 }
 
 /* ---- Row mappers ---- */

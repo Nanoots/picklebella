@@ -100,7 +100,7 @@ export default function AuthModal({ onClose, onSuccess }: Props) {
       style={{ position: 'fixed', inset: 0, zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem', backgroundColor: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(8px)' }}
       onClick={e => e.target === e.currentTarget && onClose()}
     >
-      <div style={{ backgroundColor: 'white', borderRadius: '24px', maxWidth: '420px', width: '100%', overflow: 'hidden', boxShadow: '0 32px 80px rgba(0,0,0,0.3)' }}>
+      <div className="pb-sheet" style={{ backgroundColor: 'white', borderRadius: '24px', maxWidth: '420px', width: '100%', overflowY: 'auto', boxShadow: '0 32px 80px rgba(0,0,0,0.3)' }}>
 
         {/* Brand Header */}
         <div style={{ backgroundColor: G_DARK, padding: '2rem 2rem 1.75rem', textAlign: 'center' }}>

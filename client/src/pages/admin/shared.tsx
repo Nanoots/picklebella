@@ -22,11 +22,17 @@ export function StatCard({ label, value, sub, accent }: { label: string; value: 
 
 export function StatusBadge({ status }: { status: Booking['status'] }) {
   const styles: Record<Booking['status'], string> = {
+    pending: 'bg-amber-100 text-amber-700',
     paid: 'bg-green-100 text-green-700',
+    failed: 'bg-red-100 text-red-700',
     cancelled: 'bg-gray-100 text-gray-500',
   }
   const labels: Record<Booking['status'], string> = {
+    // "Awaiting payment" rather than "Pending": staff need to know the court
+    // is held but the money has not arrived, which "pending" alone doesn't say.
+    pending: 'Awaiting payment',
     paid: 'Paid',
+    failed: 'Payment failed',
     cancelled: 'Cancelled',
   }
   return <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${styles[status]}`}>{labels[status]}</span>

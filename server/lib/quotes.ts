@@ -10,11 +10,21 @@
    fails on expiry.
 
    Replaying a valid quote is harmless — it can only try to book the same slots
-   again, and the database's exclusion constraint rejects that as a conflict. */
+   again, and the database's exclusion constraint rejects that as a conflict.
+
+   One quote prices EVERY enabled payment method, not just one. Each method
+   carries a different processor fee, so an earlier version re-quoted against
+   the server every time the customer touched a different radio button — three
+   round trips to answer "what would GCash cost?", with the figure for every
+   unselected method showing as "Select to price" in the meantime. Pricing them
+   all at once is the same amount of arithmetic and one request. The browser
+   still decides nothing: every figure it displays was signed here, and the
+   method it later picks is looked up in this table rather than trusted. */
 
 import { createHmac, timingSafeEqual, randomUUID } from 'node:crypto'
 import { QUOTE_SIGNING_SECRET, QUOTE_TTL_SECONDS } from './env.js'
 import { badRequest } from './http.js'
+import { PAYMENT_METHODS } from './domain.js'
 
 export type QuoteSlot = {
   courtId: string
@@ -23,9 +33,20 @@ export type QuoteSlot = {
   duration: number
   /** List price for this slot before any discount or fee. */
   baseAmount: number
-  /** What this row is actually charged, once discount and fee are spread. */
-  amount: number
   peak: boolean
+}
+
+/** What one payment method would cost for this basket. */
+export type QuoteMethod = {
+  feeRate: number
+  feeAmount: number
+  totalAmount: number
+  /**
+   * `totalAmount` split across the basket's rows, same order as `slots`.
+   * Each booking row stores what it was charged and reports sum that column,
+   * so these must add up to the total exactly.
+   */
+  shares: number[]
 }
 
 export type QuotePayload = {
@@ -33,12 +54,11 @@ export type QuotePayload = {
   jti: string
   /** The account the quote was issued to. Someone else's quote is not usable. */
   userId: string
-  paymentMethod: string
   slots: QuoteSlot[]
   baseAmount: number
   discount: number
-  feeAmount: number
-  totalAmount: number
+  /** methodId -> the signed figures for that method. */
+  methods: Record<string, QuoteMethod>
   promoId: string | null
   /** Unix seconds. */
   exp: number
@@ -72,32 +92,35 @@ function distribute(slotBases: number[], total: number): number[] {
 
 export function issueQuote(input: {
   userId: string
-  paymentMethod: string
-  slots: Omit<QuoteSlot, 'amount'>[]
+  slots: QuoteSlot[]
   discount: number
-  feeRate: number
   promoId: string | null
 }): { token: string; quote: QuotePayload } {
   const baseAmount = input.slots.reduce((sum, s) => sum + s.baseAmount, 0)
   const discount = Math.min(input.discount, baseAmount)
   const discounted = baseAmount - discount
-  const feeAmount = Math.round(discounted * input.feeRate)
-  const totalAmount = discounted + feeAmount
+  const slotBases = input.slots.map((s) => s.baseAmount)
 
-  const shares = distribute(
-    input.slots.map((s) => s.baseAmount),
-    totalAmount,
-  )
+  const methods: Record<string, QuoteMethod> = {}
+  for (const [id, method] of Object.entries(PAYMENT_METHODS)) {
+    if (!method.enabled) continue
+    const feeAmount = Math.round(discounted * method.feeRate)
+    const totalAmount = discounted + feeAmount
+    methods[id] = {
+      feeRate: method.feeRate,
+      feeAmount,
+      totalAmount,
+      shares: distribute(slotBases, totalAmount),
+    }
+  }
 
   const quote: QuotePayload = {
     jti: randomUUID(),
     userId: input.userId,
-    paymentMethod: input.paymentMethod,
-    slots: input.slots.map((s, i) => ({ ...s, amount: shares[i] ?? 0 })),
+    slots: input.slots,
     baseAmount,
     discount,
-    feeAmount,
-    totalAmount,
+    methods,
     promoId: input.promoId,
     exp: Math.floor(Date.now() / 1000) + QUOTE_TTL_SECONDS,
   }
@@ -145,5 +168,26 @@ export function verifyQuote(token: string, userId: string): QuotePayload {
     throw badRequest('That price quote is not valid.', 'invalid_quote')
   }
 
+  if (!payload.methods || typeof payload.methods !== 'object') {
+    throw badRequest('That price quote is not valid.', 'invalid_quote')
+  }
+
   return payload
+}
+
+/**
+ * Resolves the method the customer picked against the signed table.
+ *
+ * The method arrives in the request body, so it is the one part of the
+ * transaction the browser still names. It cannot name a *price*: an id that
+ * isn't in the quote is refused, and one that is comes back with the figures
+ * this server computed when it issued the quote.
+ */
+export function methodFromQuote(quote: QuotePayload, paymentMethod: string): QuoteMethod {
+  const method = quote.methods[paymentMethod]
+  if (!method) throw badRequest('That payment method is not available.', 'payment_method_invalid')
+  if (method.shares.length !== quote.slots.length) {
+    throw badRequest('That price quote is not valid.', 'invalid_quote')
+  }
+  return method
 }

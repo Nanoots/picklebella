@@ -1,6 +1,6 @@
-import qrphImg from '@/imports/qrph.png'
-import gcashImg from '@/imports/gcash.png'
-import mayaImg from '@/imports/maya.png'
+import qrphImg from '@/imports/opt/qrph.webp'
+import gcashImg from '@/imports/opt/gcash.webp'
+import mayaImg from '@/imports/opt/maya.webp'
 
 // Fee rates PayMongo charges PickleBella per method; passed through to the guest.
 // Single source of truth — the booking flow (BookingModal) and the admin

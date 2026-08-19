@@ -41,7 +41,7 @@ export default withApi(async (req: VercelRequest, res: VercelResponse) => {
       .select('start_hour, duration')
       .eq('court_id', input.courtId)
       .eq('date', input.date)
-      .eq('status', 'paid')
+      .in('status', ['paid', 'pending'])
     if (clashError) throw clashError
 
     const overlaps = (clashes ?? []).some(

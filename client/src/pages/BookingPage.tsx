@@ -1,13 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
-import logoImg from '@/imports/logo.jpg'
-import courtNoneImg from '@/imports/Court123.png'
-import courtAllImg from '@/imports/Court_1_2_3.jpg'
-import court1Img from '@/imports/Court1.jpg'
-import court2Img from '@/imports/Court2.jpg'
-import court3Img from '@/imports/Court3.jpg'
-import court12Img from '@/imports/Court1_2.jpg'
-import court13Img from '@/imports/Court1_3.jpg'
-import court23Img from '@/imports/Court2_3.jpg'
+import logoImg from '@/imports/opt/logo.webp'
+import courtNoneImg from '@/imports/opt/Court123.webp'
+import courtAllImg from '@/imports/opt/Court_1_2_3.webp'
+import court1Img from '@/imports/opt/Court1.webp'
+import court2Img from '@/imports/opt/Court2.webp'
+import court3Img from '@/imports/opt/Court3.webp'
+import court12Img from '@/imports/opt/Court1_2.webp'
+import court13Img from '@/imports/opt/Court1_3.webp'
+import court23Img from '@/imports/opt/Court2_3.webp'
 import BookingModal from '../components/BookingModal'
 import type { User } from '../App'
 import * as api from '../lib/api'
@@ -16,6 +16,7 @@ import type { Booking, Court, HoursConfig } from '../lib/types'
 import { OPEN_HOUR, CLOSE_HOUR } from '../lib/types'
 import { fmtHour, fmtMoney, todayStr, toLocalDateStr } from '../lib/format'
 import { useAsync } from '../lib/useAsync'
+import { useIsMobile, useIsNarrow } from '../lib/useMediaQuery'
 import { ErrorBlock, LoadingBlock } from '../components/States'
 import { BLUE, AVAILABLE_GREEN, FONT_BODY, FONT_DISPLAY, G_DARK, PINK } from '../lib/theme'
 
@@ -71,17 +72,6 @@ function timeGroups(openHour: number, closeHour: number) {
   return groups.filter((g) => g.hours.length > 0)
 }
 
-/** Availability for every court on one date, keyed by court id. */
-async function loadAvailability(courts: Court[], date: string, signal: AbortSignal) {
-  const entries = await Promise.all(
-    courts.map(async (c): Promise<[string, AvailabilityResponse]> => [
-      c.id,
-      await api.getAvailability(c.id, date, signal),
-    ]),
-  )
-  return Object.fromEntries(entries) as Record<string, AvailabilityResponse>
-}
-
 function isPastSlot(dateStr: string, hour: number) {
   const now = new Date()
   const slotDate = new Date(dateStr + 'T00:00:00')
@@ -102,6 +92,8 @@ export default function BookingPage({ user, initialCourtId, onBack, onSignOut }:
   const [showModal, setShowModal] = useState(false)
   const [activeTab, setActiveTab] = useState<Tab>('Book')
   const gridWrapRef = useRef<HTMLDivElement>(null)
+  const isMobile = useIsMobile()
+  const isNarrow = useIsNarrow()
 
   const ds = dateStr(curDate)
   const isToday = ds === todayStr()
@@ -116,8 +108,8 @@ export default function BookingPage({ user, initialCourtId, onBack, onSignOut }:
   // Re-fetched whenever the date changes, so the grid always reflects what the
   // server currently believes rather than a snapshot from page load.
   const availability = useAsync<Record<string, AvailabilityResponse>>(
-    (signal) => (COURTS.length ? loadAvailability(COURTS, ds, signal) : Promise.resolve({})),
-    [COURTS.length, ds],
+    (signal) => api.getAvailabilityAll(ds, signal),
+    [ds],
   )
 
   // The availability endpoint deliberately returns no personal data — a slot
@@ -204,20 +196,27 @@ export default function BookingPage({ user, initialCourtId, onBack, onSignOut }:
 
       {/* NAV */}
       <nav style={{ backgroundColor: 'white', borderBottom: '1px solid #F0F1F3', position: 'sticky', top: 0, zIndex: 40 }}>
-        <div style={{ maxWidth: '1120px', margin: '0 auto', padding: '0 1.5rem', height: '60px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <button onClick={onBack} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <img src={logoImg} alt="PickleBella" style={{ height: '30px', width: '30px', borderRadius: '50%', objectFit: 'cover' }} />
-            <span style={{ fontFamily: FONT_DISPLAY, color: '#111827', fontWeight: 700, fontSize: '1.05rem' }}>PickleBella</span>
+        <div style={{ maxWidth: '1120px', margin: '0 auto', padding: isMobile ? '0 1rem' : '0 1.5rem', height: isMobile ? '56px' : '60px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem' }}>
+          <button onClick={onBack} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
+            <img src={logoImg} alt="PickleBella" style={{ height: '30px', width: '30px', borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
+            <span style={{ fontFamily: FONT_DISPLAY, color: '#111827', fontWeight: 700, fontSize: isMobile ? '0.98rem' : '1.05rem' }}>PickleBella</span>
           </button>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1.75rem' }}>
+          {/* The two placeholder links and the greeting are inert text. On a
+              phone they are the difference between a nav bar that fits and one
+              that wraps onto a second line, so they are the first to go. */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: isNarrow ? '0.6rem' : '1.75rem', flexShrink: 0 }}>
             <button onClick={onBack} style={{ color: '#374151', background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.85rem', fontFamily: FONT_BODY }}>Home</button>
-            <span style={{ color: '#9CA3AF', fontSize: '0.85rem', cursor: 'default' }}>Community</span>
-            <span style={{ color: '#9CA3AF', fontSize: '0.85rem', cursor: 'default' }}>Tournaments</span>
-            <span style={{ width: '1px', height: '18px', backgroundColor: '#E5E7EB' }} />
-            <span style={{ color: '#9CA3AF', fontSize: '0.82rem' }}>Hi, {user.name.split(' ')[0]}</span>
+            {!isNarrow && (
+              <>
+                <span style={{ color: '#9CA3AF', fontSize: '0.85rem', cursor: 'default' }}>Community</span>
+                <span style={{ color: '#9CA3AF', fontSize: '0.85rem', cursor: 'default' }}>Tournaments</span>
+                <span style={{ width: '1px', height: '18px', backgroundColor: '#E5E7EB' }} />
+                <span style={{ color: '#9CA3AF', fontSize: '0.82rem' }}>Hi, {user.name.split(' ')[0]}</span>
+              </>
+            )}
             <button
               onClick={onSignOut}
-              style={{ color: '#6B7280', background: 'none', border: '1px solid #E5E7EB', borderRadius: '999px', padding: '0.35rem 0.875rem', fontSize: '0.75rem', cursor: 'pointer', fontFamily: FONT_BODY }}
+              style={{ color: '#6B7280', background: 'none', border: '1px solid #E5E7EB', borderRadius: '999px', padding: '0.35rem 0.875rem', fontSize: '0.75rem', cursor: 'pointer', fontFamily: FONT_BODY, whiteSpace: 'nowrap' }}
             >
               Sign Out
             </button>
@@ -226,12 +225,12 @@ export default function BookingPage({ user, initialCourtId, onBack, onSignOut }:
       </nav>
 
       {/* PAGE BODY */}
-      <div style={{ maxWidth: '1120px', margin: '0 auto', padding: '1.5rem 1.5rem 6rem', display: 'grid', gridTemplateColumns: 'minmax(0,1fr) 320px', gap: '1.5rem', alignItems: 'start' }}>
+      <div style={{ maxWidth: '1120px', margin: '0 auto', padding: isMobile ? '1rem 0.85rem 7.5rem' : '1.5rem 1.5rem 6rem', display: 'grid', gridTemplateColumns: isNarrow ? 'minmax(0,1fr)' : 'minmax(0,1fr) 320px', gap: isMobile ? '0.85rem' : '1.5rem', alignItems: 'start' }}>
 
         {/* LEFT: BOOKING GRID */}
         <div style={{ backgroundColor: 'white', borderRadius: '14px', overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
 
-          <div style={{ height: '160px', overflow: 'hidden' }}>
+          <div style={{ height: isMobile ? '120px' : '160px', overflow: 'hidden' }}>
             <img
               src={heroPhoto}
               alt="PickleBella courts"
@@ -240,14 +239,14 @@ export default function BookingPage({ user, initialCourtId, onBack, onSignOut }:
           </div>
 
           {/* Tabs */}
-          <div style={{ display: 'flex', gap: '1.5rem', padding: '0 1.25rem', borderBottom: '1px solid #F3F4F6' }}>
+          <div style={{ display: 'flex', gap: isMobile ? '1.1rem' : '1.5rem', padding: isMobile ? '0 0.9rem' : '0 1.25rem', borderBottom: '1px solid #F3F4F6', overflowX: 'auto', scrollbarWidth: 'none' }}>
             {TABS.map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
                 style={{
                   background: 'none', border: 'none', cursor: 'pointer', fontFamily: FONT_BODY,
-                  padding: '0.75rem 0', fontSize: '0.85rem', fontWeight: 600,
+                  padding: '0.75rem 0', fontSize: '0.85rem', fontWeight: 600, whiteSpace: 'nowrap', flexShrink: 0,
                   color: activeTab === tab ? BLUE : '#9CA3AF',
                   borderBottom: `2px solid ${activeTab === tab ? BLUE : 'transparent'}`,
                   marginBottom: '-1px', transition: 'color 0.15s',
@@ -267,7 +266,7 @@ export default function BookingPage({ user, initialCourtId, onBack, onSignOut }:
           ) : (
             <>
               {/* Date navigation */}
-              <div style={{ padding: '0.75rem 1.25rem', borderBottom: '1px solid #F3F4F6', display: 'flex', alignItems: 'center', gap: '0.625rem' }}>
+              <div style={{ padding: isMobile ? '0.7rem 0.9rem' : '0.75rem 1.25rem', borderBottom: '1px solid #F3F4F6', display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
                 <div style={{ position: 'relative', width: '16px', height: '16px', flexShrink: 0, cursor: 'pointer' }} title="Pick a date">
                   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#6B7280" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <rect x="3" y="4" width="18" height="18" rx="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" />
@@ -280,7 +279,9 @@ export default function BookingPage({ user, initialCourtId, onBack, onSignOut }:
                     style={{ position: 'absolute', inset: 0, opacity: 0, cursor: 'pointer', width: '100%', height: '100%', border: 'none', padding: 0 }}
                   />
                 </div>
-                <span style={{ fontSize: '0.9rem', fontWeight: 700, color: '#111827' }}>{formatDateLabel(curDate)}</span>
+                <span style={{ fontSize: isMobile ? '0.82rem' : '0.9rem', fontWeight: 700, color: '#111827' }}>
+                  {isMobile ? formatDateLabel(curDate).replace(/, \d{4}$/, '') : formatDateLabel(curDate)}
+                </span>
                 {gridReady && availability.loading && (
                   <span style={{ fontSize: '0.7rem', color: '#9CA3AF' }}>refreshing…</span>
                 )}
@@ -325,12 +326,12 @@ export default function BookingPage({ user, initialCourtId, onBack, onSignOut }:
                 </div>
               ) : (
               <div ref={gridWrapRef} style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '480px' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: isMobile ? `${80 + COURTS.length * 86}px` : '480px' }}>
                   <thead>
                     <tr style={{ backgroundColor: '#F9FAFB' }}>
-                      <th style={{ padding: '0.75rem 1.25rem', textAlign: 'left', fontSize: '0.72rem', fontWeight: 700, color: '#6B7280', letterSpacing: '0.08em', textTransform: 'uppercase', borderBottom: '1px solid #F3F4F6', width: '155px' }}>TIME</th>
+                      <th style={{ padding: isMobile ? '0.65rem 0.75rem' : '0.75rem 1.25rem', textAlign: 'left', fontSize: '0.7rem', fontWeight: 700, color: '#6B7280', letterSpacing: '0.08em', textTransform: 'uppercase', borderBottom: '1px solid #F3F4F6', width: isMobile ? '80px' : '155px' }}>TIME</th>
                       {COURTS.map((c) => (
-                        <th key={c.id} style={{ padding: '0.75rem', textAlign: 'center', fontSize: '0.72rem', fontWeight: 700, color: c.id === initialCourtId ? BLUE : '#6B7280', letterSpacing: '0.08em', textTransform: 'uppercase', borderBottom: c.id === initialCourtId ? `2px solid ${BLUE}` : '1px solid #F3F4F6' }}>
+                        <th key={c.id} style={{ padding: isMobile ? '0.65rem 0.35rem' : '0.75rem', textAlign: 'center', fontSize: isMobile ? '0.66rem' : '0.72rem', fontWeight: 700, color: c.id === initialCourtId ? BLUE : '#6B7280', letterSpacing: '0.08em', textTransform: 'uppercase', borderBottom: c.id === initialCourtId ? `2px solid ${BLUE}` : '1px solid #F3F4F6' }}>
                           {c.name}
                         </th>
                       ))}
@@ -339,14 +340,23 @@ export default function BookingPage({ user, initialCourtId, onBack, onSignOut }:
                   <tbody>
                     {groups.flatMap((group) => [
                       <tr key={`g-${group.label}`}>
-                        <td colSpan={COURTS.length + 1} style={{ padding: '0.5rem 1.25rem', backgroundColor: '#FAFAFA', fontSize: '0.68rem', fontWeight: 700, color: '#9CA3AF', letterSpacing: '0.1em', textTransform: 'uppercase', borderTop: '1px solid #F3F4F6', borderBottom: '1px solid #F3F4F6' }}>
+                        <td colSpan={COURTS.length + 1} style={{ padding: isMobile ? '0.45rem 0.75rem' : '0.5rem 1.25rem', backgroundColor: '#FAFAFA', fontSize: '0.68rem', fontWeight: 700, color: '#9CA3AF', letterSpacing: '0.1em', textTransform: 'uppercase', borderTop: '1px solid #F3F4F6', borderBottom: '1px solid #F3F4F6' }}>
                           {group.label}
                         </td>
                       </tr>,
                       ...group.hours.map((hour) => (
                         <tr key={`s-${hour}`} style={{ borderTop: '1px solid #F9FAFB' }}>
-                          <td style={{ padding: '0.875rem 1.25rem', verticalAlign: 'middle', whiteSpace: 'nowrap' }}>
-                            <p style={{ fontSize: '0.8rem', fontWeight: 600, color: '#111827', margin: 0 }}>{fmtHour(hour)} – {fmtHour(hour + 1)}</p>
+                          <td style={{ padding: isMobile ? '0.7rem 0.75rem' : '0.875rem 1.25rem', verticalAlign: 'middle', whiteSpace: 'nowrap' }}>
+                            <p style={{ fontSize: isMobile ? '0.72rem' : '0.8rem', fontWeight: 600, color: '#111827', margin: 0, lineHeight: 1.35 }}>
+                              {isMobile ? (
+                                <>
+                                  {fmtHour(hour)}
+                                  <span style={{ display: 'block', color: '#9CA3AF', fontWeight: 500 }}>{fmtHour(hour + 1)}</span>
+                                </>
+                              ) : (
+                                <>{fmtHour(hour)} – {fmtHour(hour + 1)}</>
+                              )}
+                            </p>
                           </td>
                           {COURTS.map((court) => {
                             const status = slotStatus(hour, court.id)
@@ -395,14 +405,14 @@ export default function BookingPage({ user, initialCourtId, onBack, onSignOut }:
                             }
 
                             return (
-                              <td key={court.id} style={{ padding: '6px 8px', textAlign: 'center', verticalAlign: 'middle', backgroundColor: 'white' }}>
+                              <td key={court.id} style={{ padding: isMobile ? '5px 4px' : '6px 8px', textAlign: 'center', verticalAlign: 'middle', backgroundColor: 'white' }}>
                                 <button
                                   type="button"
                                   disabled={!clickable && !sel}
                                   onClick={() => (clickable || sel) && toggleSlot(hour, court.id, slotPrice)}
                                   style={{
                                     ...badgeStyle,
-                                    width: '100%', minHeight: '48px', borderRadius: '10px',
+                                    width: '100%', minHeight: isMobile ? '52px' : '48px', borderRadius: '10px',
                                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                                     cursor: clickable || sel ? 'pointer' : 'default',
                                     fontFamily: FONT_BODY, transition: 'background-color 0.15s ease, border-color 0.15s ease',
@@ -425,7 +435,7 @@ export default function BookingPage({ user, initialCourtId, onBack, onSignOut }:
               )}
 
               {/* Legend */}
-              <div style={{ padding: '0.875rem 1.25rem', borderTop: '1px solid #F3F4F6', display: 'flex', alignItems: 'center', gap: '1.5rem', flexWrap: 'wrap' }}>
+              <div style={{ padding: isMobile ? '0.8rem 0.9rem' : '0.875rem 1.25rem', borderTop: '1px solid #F3F4F6', display: 'flex', alignItems: 'center', gap: isMobile ? '0.75rem' : '1.5rem', flexWrap: 'wrap' }}>
                 <span style={{ fontSize: '0.68rem', fontWeight: 700, color: '#9CA3AF', letterSpacing: '0.1em', textTransform: 'uppercase' }}>Legend</span>
                 {[
                   { label: 'Available', style: { border: '1.5px solid #D1D5DB', backgroundColor: 'white' } },
@@ -444,15 +454,15 @@ export default function BookingPage({ user, initialCourtId, onBack, onSignOut }:
         </div>
 
         {/* RIGHT: INFO PANEL */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          <div style={{ backgroundColor: 'white', borderRadius: '14px', padding: '1.25rem', boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: isMobile ? '0.85rem' : '1rem' }}>
+          <div style={{ backgroundColor: 'white', borderRadius: '14px', padding: isMobile ? '1rem' : '1.25rem', boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
             <h3 style={{ fontSize: '0.95rem', fontWeight: 700, color: '#111827', margin: '0 0 0.625rem' }}>About PickleBella Park</h3>
             <p style={{ fontSize: '0.8rem', color: '#6B7280', lineHeight: 1.65, margin: 0 }}>
               PickleBella Park is the community's premier pickleball destination — 3 professional courts with tournament-grade surfaces, night lighting, and a vibrant atmosphere for all skill levels.
             </p>
           </div>
 
-          <div style={{ backgroundColor: 'white', borderRadius: '14px', padding: '1.25rem', boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
+          <div style={{ backgroundColor: 'white', borderRadius: '14px', padding: isMobile ? '1rem' : '1.25rem', boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
             <h3 style={{ fontSize: '0.88rem', fontWeight: 700, color: '#111827', margin: '0 0 0.75rem' }}>Amenities</h3>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem' }}>
               {amenities.map((a) => (
@@ -461,7 +471,7 @@ export default function BookingPage({ user, initialCourtId, onBack, onSignOut }:
             </div>
           </div>
 
-          <div style={{ backgroundColor: 'white', borderRadius: '14px', padding: '1.25rem', boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
+          <div style={{ backgroundColor: 'white', borderRadius: '14px', padding: isMobile ? '1rem' : '1.25rem', boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
             <h3 style={{ fontSize: '0.88rem', fontWeight: 700, color: '#111827', margin: '0 0 0.75rem' }}>Operating Hours</h3>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <span style={{ fontSize: '0.82rem', color: '#6B7280' }}>{holiday ? holiday.label : formatDateLabel(curDate).split(',')[0]}</span>
@@ -471,7 +481,7 @@ export default function BookingPage({ user, initialCourtId, onBack, onSignOut }:
             </div>
           </div>
 
-          <div style={{ backgroundColor: 'white', borderRadius: '14px', padding: '1.25rem', boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
+          <div style={{ backgroundColor: 'white', borderRadius: '14px', padding: isMobile ? '1rem' : '1.25rem', boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
             <h3 style={{ fontSize: '0.88rem', fontWeight: 700, color: '#111827', margin: '0 0 0.75rem' }}>Contact Information</h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -511,14 +521,20 @@ export default function BookingPage({ user, initialCourtId, onBack, onSignOut }:
       </div>
 
       {/* STICKY BOTTOM BAR */}
-      <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, backgroundColor: 'white', borderTop: '1px solid #E5E7EB', zIndex: 40, boxShadow: '0 -4px 16px rgba(0,0,0,0.08)' }}>
-        <div style={{ maxWidth: '1120px', margin: '0 auto', padding: '0.875rem 1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div>
-            <p style={{ fontSize: '0.72rem', color: '#9CA3AF', margin: 0 }}>
-              {selected.length === 0 ? 'No slots selected' : `${courtCount} court${courtCount !== 1 ? 's' : ''} · ${selected.length} slot${selected.length !== 1 ? 's' : ''} selected`}
+      <div
+        style={{
+          position: 'fixed', bottom: 0, left: 0, right: 0, backgroundColor: 'white',
+          borderTop: '1px solid #E5E7EB', zIndex: 40, boxShadow: '0 -4px 16px rgba(0,0,0,0.08)',
+          paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+        }}
+      >
+        <div style={{ maxWidth: '1120px', margin: '0 auto', padding: isMobile ? '0.7rem 0.85rem' : '0.875rem 1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.75rem' }}>
+          <div style={{ minWidth: 0 }}>
+            <p style={{ fontSize: isMobile ? '0.68rem' : '0.72rem', color: '#9CA3AF', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {selected.length === 0 ? 'No slots selected' : `${courtCount} court${courtCount !== 1 ? 's' : ''} · ${selected.length} slot${selected.length !== 1 ? 's' : ''}`}
             </p>
             <p style={{ margin: '2px 0 0', display: 'flex', alignItems: 'baseline', gap: '4px' }}>
-              <span style={{ fontFamily: FONT_DISPLAY, fontSize: '1.3rem', fontWeight: 800, color: '#111827' }}>{fmtMoney(total)}</span>
+              <span style={{ fontFamily: FONT_DISPLAY, fontSize: isMobile ? '1.15rem' : '1.3rem', fontWeight: 800, color: '#111827' }}>{fmtMoney(total)}</span>
               <span style={{ fontSize: '0.75rem', color: '#9CA3AF' }}>/ total</span>
             </p>
           </div>
@@ -528,9 +544,11 @@ export default function BookingPage({ user, initialCourtId, onBack, onSignOut }:
             style={{
               backgroundColor: hasSelection ? '#111827' : '#E5E7EB',
               color: hasSelection ? 'white' : '#9CA3AF',
-              border: 'none', borderRadius: '999px', padding: '0.875rem 2rem',
-              fontSize: '0.9rem', fontWeight: 700, cursor: hasSelection ? 'pointer' : 'default',
-              fontFamily: FONT_BODY, transition: 'all 0.15s',
+              border: 'none', borderRadius: '999px',
+              padding: isMobile ? '0.8rem 1.5rem' : '0.875rem 2rem',
+              fontSize: isMobile ? '0.85rem' : '0.9rem', fontWeight: 700,
+              cursor: hasSelection ? 'pointer' : 'default',
+              fontFamily: FONT_BODY, transition: 'all 0.15s', flexShrink: 0, whiteSpace: 'nowrap',
             }}
           >
             Book Now
@@ -538,28 +556,17 @@ export default function BookingPage({ user, initialCourtId, onBack, onSignOut }:
         </div>
       </div>
 
-      <style>{`
-        @media (max-width: 900px) {
-          div[style*="gridTemplateColumns"] {
-            grid-template-columns: 1fr !important;
-          }
-        }
-      `}</style>
-
       {showModal && (
         <BookingModal
           user={user}
           slots={selected}
           courts={COURTS}
-          onClose={() => setShowModal(false)}
-          onSuccess={() => {
+          onClose={() => {
             setShowModal(false)
-            setSelected([])
-            // The grid and the customer's own-booking highlights are both stale
-            // the moment a booking lands, so re-read rather than patching local
-            // state and hoping it matches what the server stored.
+            // Opening the modal quotes the basket, and quoting can reveal that
+            // a slot went while the grid sat idle. Re-read on the way out so
+            // what's on screen matches what the server will actually sell.
             availability.reload()
-            myBookings.reload()
           }}
         />
       )}

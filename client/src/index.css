@@ -1,9 +1,95 @@
-@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700;9..144,800&family=Outfit:wght@300;400;500;600;700&display=swap');
 @import 'tailwindcss';
+
+/* ---------------------------------------------------------------
+   Base resets
+   --------------------------------------------------------------- */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
 
 html {
   scroll-behavior: smooth;
+  /* Stops iOS Safari inflating text in landscape, which is what breaks
+     carefully sized nav bars and turns them into two rows. */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
+
+body {
+  font-family: 'Outfit', sans-serif;
+  background-color: #FAFAF8;
+  margin: 0;
+  /* A single element overflowing its container should never let the whole
+     page slide sideways. Wide things (the booking grid) scroll inside their
+     own container instead. */
+  overflow-x: hidden;
+}
+
+img,
+svg,
+video {
+  max-width: 100%;
+}
+
+/* Inputs and buttons don't inherit the page font on their own, and a font
+   size under 16px makes iOS Safari zoom the viewport on focus — which leaves
+   the user zoomed in on a form they then have to pinch back out of. */
+input,
+select,
+textarea,
+button {
+  font-family: inherit;
+}
+
+@media (max-width: 640px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}
+
+/* ---------------------------------------------------------------
+   Landing hero
+
+   `svh` is the "small viewport" unit: the height with the mobile browser's
+   URL bar showing. Plain `vh` is the LARGE viewport, so a 100vh hero on a
+   phone is taller than the screen and pushes the CTA below the fold. The vh
+   line stays first as the fallback for anything that doesn't know svh.
+   --------------------------------------------------------------- */
+
+.pb-hero {
+  min-height: 100vh;
+  min-height: 100svh;
+}
+
+/* ---------------------------------------------------------------
+   Modal / bottom sheet
+
+   `dvh` is the dynamic viewport height, which shrinks and grows with the
+   mobile browser's URL bar. A `vh`-based max-height leaves the sheet taller
+   than the screen the moment that bar is showing, so its footer buttons sit
+   below the fold with no way to scroll to them.
+   --------------------------------------------------------------- */
+
+.pb-sheet {
+  max-height: 92vh;
+  max-height: 92dvh;
+}
+
+@media (max-width: 640px) {
+  .pb-sheet {
+    max-height: 94vh;
+    max-height: 94dvh;
+  }
+}
+
+/* ---------------------------------------------------------------
+   Scrollbars
+   --------------------------------------------------------------- */
 
 * {
   scrollbar-width: thin;
@@ -14,8 +100,20 @@ html {
   scrollbar-color: rgba(0, 0, 0, 0.12) transparent;
 }
 
-body {
-  font-family: 'Outfit', sans-serif;
-  background-color: #FAFAF8;
-  margin: 0;
+/* ---------------------------------------------------------------
+   Motion
+   --------------------------------------------------------------- */
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

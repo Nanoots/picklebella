@@ -20,6 +20,8 @@ import type {
   HoursConfig,
   MemberSummary,
   MonthlyReport,
+  PaymentStart,
+  PaymentStatus,
   PricingConfig,
   PromoCode,
   Quote,
@@ -122,6 +124,29 @@ export function getAvailability(courtId: string, date: string, signal?: AbortSig
   return request<AvailabilityResponse>('/api/availability?' + q.toString(), { signal })
 }
 
+type AllAvailabilityResponse = {
+  date: string
+  hours: DayHours
+  courts: { courtId: string; slots: Record<number, SlotStatus>; prices: Record<number, number> }[]
+}
+
+/**
+ * Availability for every active court on one date, in a single request.
+ *
+ * Asking per court meant one request — and on Vercel, one cold start — per
+ * court for a grid that cannot draw until the last of them has landed.
+ */
+export async function getAvailabilityAll(
+  date: string,
+  signal?: AbortSignal,
+): Promise<Record<string, AvailabilityResponse>> {
+  const q = new URLSearchParams({ date })
+  const res = await request<AllAvailabilityResponse>('/api/availability?' + q.toString(), { signal })
+  return Object.fromEntries(
+    res.courts.map((c) => [c.courtId, { date: res.date, hours: res.hours, slots: c.slots, prices: c.prices }]),
+  )
+}
+
 /* ---------------- Booking ---------------- */
 
 /** A slot the customer wants, as sent to the server for pricing. */
@@ -136,25 +161,44 @@ export type SlotRequest = {
  * Ask the server what a basket of slots costs. Returns a short-lived quote.
  *
  * The whole basket is priced in one call so a promo code is applied once,
- * however many slots it covers.
+ * however many slots it covers, and the returned quote carries a total for
+ * every payment method rather than only the one currently selected.
  */
 export function quoteBooking(input: {
   slots: SlotRequest[]
-  paymentMethod: string
   promoCode?: string
 }): Promise<Quote> {
   return request<Quote>('/api/quote', { method: 'POST', body: input, auth: true })
 }
 
-/** Confirm the basket against a quote the server issued. Books all or nothing. */
-export function createBooking(input: {
+/**
+ * Holds the basket and opens a real payment. Books all or nothing.
+ *
+ * This no longer confirms anything by itself: it writes the slots as a
+ * PENDING hold and hands back where to send the customer to pay. The booking
+ * becomes real when the gateway says the money arrived.
+ */
+export function startPayment(input: {
   quoteId: string
+  /** Looked up in the signed quote's price table; it cannot name an amount. */
+  paymentMethod: string
   name: string
   phone: string
   players: number
   notes?: string
-}): Promise<Booking[]> {
-  return request<Booking[]>('/api/bookings', { method: 'POST', body: input, auth: true })
+}): Promise<PaymentStart> {
+  return request<PaymentStart>('/api/bookings', { method: 'POST', body: input, auth: true })
+}
+
+/**
+ * What actually happened to a payment.
+ *
+ * The `?payment=` on the URL the customer returns with is not evidence of
+ * anything — this asks the server, which asks the gateway.
+ */
+export function getPaymentStatus(intentId: string, signal?: AbortSignal): Promise<PaymentStatus> {
+  const q = new URLSearchParams({ intentId })
+  return request<PaymentStatus>('/api/payments/status?' + q.toString(), { auth: true, signal })
 }
 
 export function getMyBookings(signal?: AbortSignal): Promise<Booking[]> {

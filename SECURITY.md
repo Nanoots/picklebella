@@ -159,9 +159,20 @@ against a distributed attack.
 Worth being explicit about, since "just for testing" tends to become
 production:
 
-1. **No real payment processing.** Bookings are recorded as `paid` on
-   creation. `paymentMethod` and the fee are metadata. Wiring a processor
-   means moving the paid/unpaid transition to a verified webhook.
+1. **Payments depend on the webhook secret being set.** A booking now goes in
+   as `pending` and only becomes `paid` when PayMongo's signed webhook says
+   the money arrived (`server/api/payments/webhook.ts`), with the return page
+   re-checking the intent directly as a fallback. Two things to keep true:
+
+   - `PAYMONGO_WEBHOOK_SECRET` must be set, or webhooks are refused and
+     confirmation falls back entirely to the customer returning to the site.
+   - The webhook reads the **raw** request body before parsing it. The HMAC
+     covers the exact bytes PayMongo sent, so re-enabling Vercel's body parser
+     on that route would break every signature check.
+
+   Card payments are deliberately still off: a card payment method has to be
+   created in the browser with the publishable key so card numbers never reach
+   this server.
 2. **Rate limiting is per-instance.** Move it to Postgres or Upstash before
    real traffic.
 3. **Turn on email confirmation** in Supabase Auth (Authentication →

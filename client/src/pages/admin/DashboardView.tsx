@@ -2,7 +2,7 @@ import type { Booking, Block, Court } from '../../lib/types'
 import { fmtDate, fmtHour, fmtMoney, todayStr, toLocalDateStr } from '../../lib/format'
 import { G } from '../../lib/theme'
 import { StatCard, StatusBadge, SectionCard } from './shared'
-import { LineChart } from './charts'
+import { AreaChart, VIZ } from './charts'
 
 interface Props {
   bookings: Booking[]
@@ -47,16 +47,19 @@ export default function DashboardView({ bookings, blocks, courts }: Props) {
       </div>
 
       <SectionCard title="Revenue — last 14 days" subtitle="Paid court revenue by day">
-        <LineChart
+        <AreaChart
           data={trend}
-          color={G}
-          height={200}
+          color={VIZ.green}
+          height={210}
           valueFormatter={fmtMoney}
+          categoryHeading="Day"
+          valueHeading="Revenue"
+          emptyMessage="No paid bookings in the last 14 days."
           renderTooltip={(d) => (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-              <strong>{fmtMoney(d.value)}</strong>
-              <span>{d.bookingsCount} booking{d.bookingsCount === 1 ? '' : 's'}</span>
-              <span style={{ opacity: 0.7 }}>{d.fullDate}</span>
+              <strong style={{ fontSize: '0.82rem' }}>{fmtMoney(d.value)}</strong>
+              <span style={{ opacity: 0.85 }}>{d.bookingsCount} booking{d.bookingsCount === 1 ? '' : 's'}</span>
+              <span style={{ opacity: 0.6 }}>{d.fullDate}</span>
             </div>
           )}
         />

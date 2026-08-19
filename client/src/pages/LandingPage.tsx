@@ -1,11 +1,13 @@
-import logoImg from '@/imports/logo.jpg'
+import logoImg from '@/imports/opt/logo.webp'
+import heroImg from '@/imports/opt/Court_1_2_3.webp'
 import type { User } from '../App'
 import * as api from '../lib/api'
 import type { Court, DayHours, HoursConfig } from '../lib/types'
 import { fmtHour, fmtMoney, todayStr } from '../lib/format'
 import { useAsync } from '../lib/useAsync'
+import { useIsMobile, useIsNarrow } from '../lib/useMediaQuery'
 import { ErrorBlock, LoadingBlock } from '../components/States'
-import { G_DARK, G, PINK, LIME, FONT_BODY, FONT_DISPLAY } from '../lib/theme'
+import { G_DARK, PINK, LIME, FONT_BODY, FONT_DISPLAY } from '../lib/theme'
 
 interface Props {
   user: User | null
@@ -48,30 +50,29 @@ function hoursSummary(weekly: DayHours[]) {
 /** Today's headline figures for one court, shown in the "Live This Week" strip. */
 type CourtToday = { bookedCount: number; nextOpenHour: number | undefined }
 
-async function loadToday(courts: Court[], date: string, signal: AbortSignal) {
+async function loadToday(date: string, signal: AbortSignal) {
   const nowHour = new Date().getHours()
 
-  const entries = await Promise.all(
-    courts.map(async (c): Promise<[string, CourtToday]> => {
-      try {
-        const { slots } = await api.getAvailability(c.id, date, signal)
+  // One request for all three courts. This strip is decorative — the page is
+  // perfectly usable without it — so a failure resolves to nothing rather than
+  // surfacing an error over the whole section.
+  try {
+    const byCourt = await api.getAvailabilityAll(date, signal)
+    return Object.fromEntries(
+      Object.entries(byCourt).map(([courtId, { slots }]) => {
         const hours = Object.keys(slots).map(Number).sort((a, b) => a - b)
         return [
-          c.id,
+          courtId,
           {
             bookedCount: hours.filter((h) => slots[h] === 'booked').length,
             nextOpenHour: hours.find((h) => slots[h] === 'available' && h > nowHour),
           },
         ]
-      } catch {
-        // One court failing must not blank the whole strip — the rest of the
-        // page is still perfectly usable.
-        return [c.id, { bookedCount: 0, nextOpenHour: undefined }]
-      }
-    }),
-  )
-
-  return Object.fromEntries(entries) as Record<string, CourtToday>
+      }),
+    ) as Record<string, CourtToday>
+  } catch {
+    return {}
+  }
 }
 
 function SectionHead({ kicker, title, align = 'center' }: { kicker: string; title: React.ReactNode; align?: 'center' | 'left' }) {
@@ -85,6 +86,8 @@ function SectionHead({ kicker, title, align = 'center' }: { kicker: string; titl
 
 export default function LandingPage({ user, onReserve, onSignIn, onSignOut, onAdminSignIn }: Props) {
   const today = todayStr()
+  const isMobile = useIsMobile()
+  const isNarrow = useIsNarrow()
 
   const venue = useAsync<{ courts: Court[]; hours: HoursConfig }>(async (signal) => {
     const [courts, config] = await Promise.all([api.getCourts(signal), api.getConfig(signal)])
@@ -96,8 +99,8 @@ export default function LandingPage({ user, onReserve, onSignIn, onSignOut, onAd
   // Loaded separately so the page renders as soon as the courts are known —
   // today's occupancy is a nice-to-have, not something worth blocking on.
   const todayStats = useAsync<Record<string, CourtToday>>(
-    (signal) => (COURTS.length ? loadToday(COURTS, today, signal) : Promise.resolve({})),
-    [COURTS.length, today],
+    (signal) => loadToday(today, signal),
+    [today],
   )
 
   const MIN_RATE = COURTS.length ? Math.min(...COURTS.map((c) => c.rate)) : 0
@@ -110,29 +113,31 @@ export default function LandingPage({ user, onReserve, onSignIn, onSignOut, onAd
 
       {/* NAV */}
       <nav style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 50, backgroundColor: G_DARK }}>
-        <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 1.5rem', height: '64px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <img src={logoImg} alt="PickleBella Park" style={{ height: '40px', width: '40px', borderRadius: '50%', objectFit: 'cover' }} />
-            <span style={{ fontFamily: FONT_DISPLAY, color: 'white', fontWeight: 700, fontSize: '1.1rem', letterSpacing: '-0.01em' }}>
+        <div style={{ maxWidth: '1200px', margin: '0 auto', padding: isMobile ? '0 1rem' : '0 1.5rem', height: isMobile ? '58px' : '64px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
+            <img src={logoImg} alt="PickleBella Park" style={{ height: isMobile ? '32px' : '40px', width: isMobile ? '32px' : '40px', borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
+            <span style={{ fontFamily: FONT_DISPLAY, color: 'white', fontWeight: 700, fontSize: isMobile ? '1rem' : '1.1rem', letterSpacing: '-0.01em' }}>
               PickleBella
             </span>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '0.4rem' : '0.75rem', flexShrink: 0 }}>
             {user ? (
               <>
-                <span style={{ color: 'rgba(255,255,255,0.65)', fontSize: '0.85rem' }}>
-                  Hi, {user.name.split(' ')[0]}
-                </span>
+                {!isMobile && (
+                  <span style={{ color: 'rgba(255,255,255,0.65)', fontSize: '0.85rem' }}>
+                    Hi, {user.name.split(' ')[0]}
+                  </span>
+                )}
                 <button
                   onClick={onSignOut}
-                  style={{ color: 'rgba(255,255,255,0.7)', background: 'none', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '999px', padding: '0.4rem 1rem', fontSize: '0.8rem', cursor: 'pointer', fontFamily: FONT_BODY }}
+                  style={{ color: 'rgba(255,255,255,0.7)', background: 'none', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '999px', padding: isMobile ? '0.4rem 0.7rem' : '0.4rem 1rem', fontSize: isMobile ? '0.75rem' : '0.8rem', cursor: 'pointer', fontFamily: FONT_BODY, whiteSpace: 'nowrap' }}
                 >
                   Sign Out
                 </button>
                 <button
                   onClick={() => onReserve()}
-                  style={{ backgroundColor: PINK, color: 'white', border: 'none', borderRadius: '999px', padding: '0.5rem 1.25rem', fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer', fontFamily: FONT_BODY }}
+                  style={{ backgroundColor: PINK, color: 'white', border: 'none', borderRadius: '999px', padding: isMobile ? '0.45rem 0.9rem' : '0.5rem 1.25rem', fontSize: isMobile ? '0.78rem' : '0.85rem', fontWeight: 600, cursor: 'pointer', fontFamily: FONT_BODY, whiteSpace: 'nowrap' }}
                 >
                   Book Now
                 </button>
@@ -140,7 +145,7 @@ export default function LandingPage({ user, onReserve, onSignIn, onSignOut, onAd
             ) : (
               <button
                 onClick={onSignIn}
-                style={{ backgroundColor: 'transparent', color: 'white', border: '1px solid rgba(255,255,255,0.35)', borderRadius: '999px', padding: '0.5rem 1.25rem', fontSize: '0.875rem', fontWeight: 500, cursor: 'pointer', fontFamily: FONT_BODY }}
+                style={{ backgroundColor: 'transparent', color: 'white', border: '1px solid rgba(255,255,255,0.35)', borderRadius: '999px', padding: isMobile ? '0.45rem 1rem' : '0.5rem 1.25rem', fontSize: isMobile ? '0.8rem' : '0.875rem', fontWeight: 500, cursor: 'pointer', fontFamily: FONT_BODY, whiteSpace: 'nowrap' }}
               >
                 Sign In
               </button>
@@ -150,34 +155,39 @@ export default function LandingPage({ user, onReserve, onSignIn, onSignOut, onAd
       </nav>
 
       {/* HERO */}
-      <section style={{ position: 'relative', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+      <section className="pb-hero" style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+        {/* Bundled, not hot-linked. The CSP this site ships with is
+            `img-src 'self' data: blob:`, so a remote image URL is blocked
+            outright in production and the hero renders as a bare gradient. */}
         <img
-          src="https://images.unsplash.com/photo-1778180883944-9b8403391d85?w=1920&h=1080&fit=crop&auto=format"
+          src={heroImg}
           alt="PickleBella Park pickleball courts"
+          fetchPriority="high"
+          decoding="async"
           style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }}
         />
         <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(155deg, rgba(8,24,12,0.65) 0%, rgba(8,24,12,0.82) 100%)' }} />
 
-        <div style={{ position: 'relative', zIndex: 1, textAlign: 'center', padding: '5rem 1.5rem 3rem', maxWidth: '700px', margin: '0 auto' }}>
-          <p style={{ color: LIME, fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.22em', textTransform: 'uppercase', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
-            <span style={{ display: 'inline-block', width: '24px', height: '1px', backgroundColor: LIME }} />
-            PickleBella Park · 3 Professional Courts
-            <span style={{ display: 'inline-block', width: '24px', height: '1px', backgroundColor: LIME }} />
+        <div style={{ position: 'relative', zIndex: 1, textAlign: 'center', padding: isMobile ? '4.5rem 1.25rem 3.5rem' : '5rem 1.5rem 3rem', maxWidth: '700px', margin: '0 auto', width: '100%' }}>
+          <p style={{ color: LIME, fontSize: isMobile ? '0.6rem' : '0.68rem', fontWeight: 700, letterSpacing: isMobile ? '0.16em' : '0.22em', textTransform: 'uppercase', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', flexWrap: 'nowrap' }}>
+            <span style={{ display: 'inline-block', width: isMobile ? '14px' : '24px', height: '1px', backgroundColor: LIME, flexShrink: 0 }} />
+            <span style={{ minWidth: 0 }}>PickleBella Park · 3 Courts</span>
+            <span style={{ display: 'inline-block', width: isMobile ? '14px' : '24px', height: '1px', backgroundColor: LIME, flexShrink: 0 }} />
           </p>
 
-          <h1 style={{ fontFamily: FONT_DISPLAY, color: 'white', fontSize: 'clamp(3rem, 9vw, 6rem)', fontWeight: 700, lineHeight: 1.0, margin: '0 0 1.5rem', letterSpacing: '-0.02em' }}>
+          <h1 style={{ fontFamily: FONT_DISPLAY, color: 'white', fontSize: 'clamp(2.35rem, 11vw, 6rem)', fontWeight: 700, lineHeight: 1.05, margin: '0 0 1.5rem', letterSpacing: '-0.02em', overflowWrap: 'break-word' }}>
             Dink. Smash.<br />
             <span style={{ color: PINK }}>Enjoy.</span>
           </h1>
 
-          <p style={{ color: 'rgba(255,255,255,0.62)', fontSize: 'clamp(0.9rem, 2.5vw, 1.05rem)', lineHeight: 1.75, margin: '0 auto 2.5rem', maxWidth: '420px' }}>
+          <p style={{ color: 'rgba(255,255,255,0.62)', fontSize: 'clamp(0.88rem, 2.5vw, 1.05rem)', lineHeight: 1.7, margin: '0 auto 2.25rem', maxWidth: '420px' }}>
             Book your court at PickleBella Park — 3 professional pickleball courts nestled in one beautiful outdoor venue.
           </p>
 
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
             <button
               onClick={() => onReserve()}
-              style={{ backgroundColor: PINK, color: 'white', border: 'none', borderRadius: '999px', padding: '1rem 2.75rem', fontSize: '1rem', fontWeight: 600, cursor: 'pointer', fontFamily: FONT_BODY, letterSpacing: '0.01em' }}
+              style={{ backgroundColor: PINK, color: 'white', border: 'none', borderRadius: '999px', padding: isMobile ? '0.95rem 2.25rem' : '1rem 2.75rem', fontSize: isMobile ? '0.95rem' : '1rem', fontWeight: 600, cursor: 'pointer', fontFamily: FONT_BODY, letterSpacing: '0.01em', maxWidth: '100%' }}
               onMouseEnter={e => { e.currentTarget.style.opacity = '0.88' }}
               onMouseLeave={e => { e.currentTarget.style.opacity = '1' }}
             >
@@ -194,14 +204,14 @@ export default function LandingPage({ user, onReserve, onSignIn, onSignOut, onAd
           </div>
         </div>
 
-        <div style={{ position: 'absolute', bottom: '2.5rem', left: '50%', transform: 'translateX(-50%)', opacity: 0.35 }}>
+        <div style={{ position: 'absolute', bottom: '2.5rem', left: '50%', transform: 'translateX(-50%)', opacity: 0.35, display: isMobile ? 'none' : 'block' }}>
           <div style={{ width: '1px', height: '40px', background: 'linear-gradient(to bottom, transparent, white)', margin: '0 auto' }} />
         </div>
       </section>
 
       {/* STATS STRIP */}
-      <div style={{ backgroundColor: G_DARK, padding: '1.5rem 1.5rem' }}>
-        <div style={{ maxWidth: '1200px', margin: '0 auto', display: 'flex', justifyContent: 'center', gap: 'clamp(2rem, 8vw, 6rem)', flexWrap: 'wrap' }}>
+      <div style={{ backgroundColor: G_DARK, padding: isMobile ? '1.5rem 1rem' : '1.5rem' }}>
+        <div style={{ maxWidth: '1200px', margin: '0 auto', display: 'flex', justifyContent: 'center', gap: isMobile ? '1.5rem 1.25rem' : 'clamp(2rem, 8vw, 6rem)', flexWrap: 'wrap' }}>
           {[
             { num: venue.data ? String(COURTS.length) : '—', label: 'Professional Courts' },
             {
@@ -214,16 +224,16 @@ export default function LandingPage({ user, onReserve, onSignIn, onSignOut, onAd
             },
             { num: !venue.data ? '—' : openRow ? openRow.value : 'Closed', label: hourRows.length === 1 ? 'Open Everyday' : 'Typical Hours' },
           ].map(stat => (
-            <div key={stat.label} style={{ textAlign: 'center' }}>
-              <p style={{ fontFamily: FONT_DISPLAY, color: 'white', fontSize: '1.5rem', fontWeight: 700, margin: 0 }}>{stat.num}</p>
-              <p style={{ color: 'rgba(255,255,255,0.38)', fontSize: '0.68rem', fontWeight: 500, letterSpacing: '0.1em', margin: '3px 0 0', textTransform: 'uppercase' }}>{stat.label}</p>
+            <div key={stat.label} style={{ textAlign: 'center', flex: isMobile ? '1 1 30%' : '0 0 auto', minWidth: 0 }}>
+              <p style={{ fontFamily: FONT_DISPLAY, color: 'white', fontSize: isMobile ? '1.15rem' : '1.5rem', fontWeight: 700, margin: 0, overflowWrap: 'break-word' }}>{stat.num}</p>
+              <p style={{ color: 'rgba(255,255,255,0.38)', fontSize: isMobile ? '0.6rem' : '0.68rem', fontWeight: 500, letterSpacing: '0.08em', margin: '3px 0 0', textTransform: 'uppercase' }}>{stat.label}</p>
             </div>
           ))}
         </div>
       </div>
 
       {/* LIVE THIS WEEK */}
-      <section style={{ padding: '4rem 1.5rem' }}>
+      <section style={{ padding: isMobile ? '2.75rem 1.1rem' : '4rem 1.5rem' }}>
         <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
           <SectionHead kicker="Live This Week" align="left" title={<>Court highlights at <span style={{ color: PINK }}>PickleBella</span></>} />
           {venue.loading && <LoadingBlock label="Loading courts…" />}
@@ -263,7 +273,7 @@ export default function LandingPage({ user, onReserve, onSignIn, onSignOut, onAd
       </section>
 
       {/* MADE FOR EVERY PLAYER */}
-      <section style={{ backgroundColor: G_DARK, padding: '4rem 1.5rem' }}>
+      <section style={{ backgroundColor: G_DARK, padding: isMobile ? '2.75rem 1.1rem' : '4rem 1.5rem' }}>
         <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
           <p style={{ color: LIME, fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', textAlign: 'center', margin: '0 0 0.6rem' }}>Made For Every Player</p>
           <h2 style={{ fontFamily: FONT_DISPLAY, color: 'white', fontSize: 'clamp(1.6rem, 4vw, 2.4rem)', fontWeight: 700, textAlign: 'center', margin: '0 0 2.5rem', lineHeight: 1.15 }}>
@@ -286,7 +296,7 @@ export default function LandingPage({ user, onReserve, onSignIn, onSignOut, onAd
       </section>
 
       {/* HOW IT WORKS */}
-      <section id="how" style={{ padding: '4.5rem 1.5rem' }}>
+      <section id="how" style={{ padding: isMobile ? '3rem 1.1rem' : '4.5rem 1.5rem' }}>
         <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
           <SectionHead kicker="Simple Booking" title="How booking works" />
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '2rem' }}>
@@ -310,7 +320,7 @@ export default function LandingPage({ user, onReserve, onSignIn, onSignOut, onAd
       </section>
 
       {/* COURTS */}
-      <section id="courts" style={{ backgroundColor: '#F3F4F6', padding: '4.5rem 1.5rem' }}>
+      <section id="courts" style={{ backgroundColor: '#F3F4F6', padding: isMobile ? '3rem 1.1rem' : '4.5rem 1.5rem' }}>
         <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
           <SectionHead
             kicker="Our Courts"
@@ -348,7 +358,7 @@ export default function LandingPage({ user, onReserve, onSignIn, onSignOut, onAd
       </section>
 
       {/* AMENITIES */}
-      <section id="amenities" style={{ backgroundColor: G_DARK, padding: '4.5rem 1.5rem' }}>
+      <section id="amenities" style={{ backgroundColor: G_DARK, padding: isMobile ? '3rem 1.1rem' : '4.5rem 1.5rem' }}>
         <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
           <p style={{ color: LIME, fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', textAlign: 'center', margin: '0 0 0.6rem' }}>What We Offer</p>
           <h2 style={{ fontFamily: FONT_DISPLAY, color: 'white', fontSize: 'clamp(1.6rem, 4vw, 2.4rem)', fontWeight: 700, textAlign: 'center', margin: '0 0 2.5rem' }}>Everything you need for a great game</h2>
@@ -370,11 +380,11 @@ export default function LandingPage({ user, onReserve, onSignIn, onSignOut, onAd
       </section>
 
       {/* VISIT US */}
-      <section id="visit" style={{ padding: '4.5rem 1.5rem' }}>
+      <section id="visit" style={{ padding: isMobile ? '3rem 1.1rem' : '4.5rem 1.5rem' }}>
         <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
           <SectionHead kicker="Visit Us" title="Location & operating hours" />
-          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1.1fr) minmax(0,1fr)', gap: '2rem', alignItems: 'center' }}>
-            <div style={{ height: '260px', borderRadius: '18px', background: 'linear-gradient(135deg, #D1FAE5 0%, #A7F3D0 50%, #6EE7B7 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', textAlign: 'center', padding: '1.5rem', color: G_DARK, fontWeight: 600 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: isNarrow ? 'minmax(0,1fr)' : 'minmax(0,1.1fr) minmax(0,1fr)', gap: '2rem', alignItems: 'center' }}>
+            <div style={{ height: isMobile ? '190px' : '260px', borderRadius: '18px', background: 'linear-gradient(135deg, #D1FAE5 0%, #A7F3D0 50%, #6EE7B7 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', textAlign: 'center', padding: '1.5rem', color: G_DARK, fontWeight: 600, fontSize: isMobile ? '0.85rem' : '1rem', lineHeight: 1.6 }}>
               📍 123 Rally Street, Barangay Match Point<br />Quezon City, Metro Manila
             </div>
             <div>
@@ -400,7 +410,7 @@ export default function LandingPage({ user, onReserve, onSignIn, onSignOut, onAd
       </section>
 
       {/* FINAL CTA */}
-      <section style={{ backgroundColor: G_DARK, padding: '4.5rem 1.5rem', textAlign: 'center' }}>
+      <section style={{ backgroundColor: G_DARK, padding: isMobile ? '3rem 1.1rem' : '4.5rem 1.5rem', textAlign: 'center' }}>
         <h2 style={{ fontFamily: FONT_DISPLAY, color: 'white', fontSize: 'clamp(1.7rem, 4.5vw, 2.6rem)', fontWeight: 700, margin: '0 0 1.75rem', lineHeight: 1.2 }}>
           More games. Less waiting.<br /><span style={{ color: LIME }}>Book your court now.</span>
         </h2>
@@ -413,7 +423,7 @@ export default function LandingPage({ user, onReserve, onSignIn, onSignOut, onAd
       </section>
 
       {/* FOOTER */}
-      <footer style={{ backgroundColor: '#081810', padding: '3rem 1.5rem 1.5rem' }}>
+      <footer style={{ backgroundColor: '#081810', padding: isMobile ? '2.25rem 1.1rem 1.25rem' : '3rem 1.5rem 1.5rem' }}>
         <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '2rem', marginBottom: '2.5rem' }}>
             <div>

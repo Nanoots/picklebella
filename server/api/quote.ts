@@ -26,7 +26,10 @@ import { issueQuote, type QuoteSlot } from '../lib/quotes.js'
  * The client sends what it wants to book, never what it thinks that costs.
  *
  * The basket is priced as a unit so a promo code is applied once no matter how
- * many slots it covers.
+ * many slots it covers, and EVERY enabled payment method is priced in the same
+ * pass. The customer switching between GCash and Maya is then an instant local
+ * re-render rather than another round trip, without the browser ever working
+ * out a fee for itself.
  */
 export default withApi(async (req: VercelRequest, res: VercelResponse) => {
   requireMethod(req, 'POST')
@@ -59,13 +62,15 @@ export default withApi(async (req: VercelRequest, res: VercelResponse) => {
       .select('court_id, date, start_hour, duration')
       .in('court_id', courtIds)
       .in('date', dates)
-      .eq('status', 'paid'),
+      // Live payment holds count as taken, so a customer is told the slot has
+      // gone before filling in the form rather than at the gateway.
+      .in('status', ['paid', 'pending']),
     db.from('blocks').select('court_id, date, start_hour, end_hour').in('court_id', courtIds).in('date', dates),
   ])
   if (existingError) throw existingError
   if (blocksError) throw blocksError
 
-  const priced: Omit<QuoteSlot, 'amount'>[] = []
+  const priced: QuoteSlot[] = []
 
   for (const slot of input.slots) {
     const court = courts.get(slot.courtId)!
@@ -140,14 +145,10 @@ export default withApi(async (req: VercelRequest, res: VercelResponse) => {
     promoId = promo.id
   }
 
-  const method = PAYMENT_METHODS[input.paymentMethod]!
-
   const { token, quote } = issueQuote({
     userId: caller.id,
-    paymentMethod: input.paymentMethod,
     slots: priced,
     discount,
-    feeRate: method.feeRate,
     promoId,
   })
 
@@ -156,9 +157,14 @@ export default withApi(async (req: VercelRequest, res: VercelResponse) => {
     slots: quote.slots,
     baseAmount: quote.baseAmount,
     discount: quote.discount,
-    feeAmount: quote.feeAmount,
-    totalAmount: quote.totalAmount,
-    paymentMethod: quote.paymentMethod,
+    // One entry per enabled method, so the payment picker can label every row
+    // with a real price the moment it opens.
+    methods: Object.entries(quote.methods).map(([id, m]) => ({
+      id,
+      label: PAYMENT_METHODS[id]?.label ?? id,
+      feeAmount: m.feeAmount,
+      totalAmount: m.totalAmount,
+    })),
     promoApplied: Boolean(quote.promoId),
     expiresAt: new Date(quote.exp * 1000).toISOString(),
   })

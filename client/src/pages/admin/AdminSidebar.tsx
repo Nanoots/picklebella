@@ -1,5 +1,5 @@
 import { LayoutDashboard, Building2, CalendarCheck, SlidersHorizontal, Users, Tag, BarChart3, LogOut } from 'lucide-react'
-import logoImg from '@/imports/logo.jpg'
+import logoImg from '@/imports/opt/logo.webp'
 import { G_DARK, G, LIME, FONT_BODY, FONT_DISPLAY } from '../../lib/theme'
 import type { AdminSection } from './types'
 
