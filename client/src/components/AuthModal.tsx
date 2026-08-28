@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import logoImg from '@/imports/logo.jpg'
+import logoImg from '@/imports/opt/logo.webp'
 import type { User } from '../App'
 import { signIn, signUp } from '../lib/auth'
 import { G_DARK, G, PINK, FONT_BODY, FONT_DISPLAY } from '../lib/theme'

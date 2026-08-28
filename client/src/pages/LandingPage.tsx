@@ -1,4 +1,5 @@
 import logoImg from '@/imports/opt/logo.webp'
+import heroBadgeImg from '@/imports/opt/logo-hero.webp'
 import heroImg from '@/imports/opt/Court_1_2_3.webp'
 import type { User } from '../App'
 import * as api from '../lib/api'
@@ -164,32 +165,44 @@ export default function LandingPage({ user, onReserve, onSignIn, onSignOut, onAd
           alt="PickleBella Park pickleball courts"
           fetchPriority="high"
           decoding="async"
-          style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }}
+          className="pb-hero-bg"
+          style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', willChange: 'transform' }}
         />
         <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(155deg, rgba(8,24,12,0.65) 0%, rgba(8,24,12,0.82) 100%)' }} />
 
-        <div style={{ position: 'relative', zIndex: 1, textAlign: 'center', padding: isMobile ? '4.5rem 1.25rem 3.5rem' : '5rem 1.5rem 3rem', maxWidth: '700px', margin: '0 auto', width: '100%' }}>
-          <p style={{ color: LIME, fontSize: isMobile ? '0.6rem' : '0.68rem', fontWeight: 700, letterSpacing: isMobile ? '0.16em' : '0.22em', textTransform: 'uppercase', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', flexWrap: 'nowrap' }}>
+        <div style={{ position: 'relative', zIndex: 1, textAlign: 'center', padding: isMobile ? '4rem 1.25rem 3.5rem' : '4.5rem 1.5rem 3rem', maxWidth: '700px', margin: '0 auto', width: '100%' }}>
+          <p className="pb-hero-fade" style={{ animationDelay: '0.05s', color: LIME, fontSize: isMobile ? '0.6rem' : '0.68rem', fontWeight: 700, letterSpacing: isMobile ? '0.16em' : '0.22em', textTransform: 'uppercase', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', flexWrap: 'nowrap' }}>
             <span style={{ display: 'inline-block', width: isMobile ? '14px' : '24px', height: '1px', backgroundColor: LIME, flexShrink: 0 }} />
             <span style={{ minWidth: 0 }}>PickleBella Park · 3 Courts</span>
             <span style={{ display: 'inline-block', width: isMobile ? '14px' : '24px', height: '1px', backgroundColor: LIME, flexShrink: 0 }} />
           </p>
 
-          <h1 style={{ fontFamily: FONT_DISPLAY, color: 'white', fontSize: 'clamp(2.35rem, 11vw, 6rem)', fontWeight: 700, lineHeight: 1.05, margin: '0 0 1.5rem', letterSpacing: '-0.02em', overflowWrap: 'break-word' }}>
-            Dink. Smash.<br />
-            <span style={{ color: PINK }}>Enjoy.</span>
+          <h1 style={{ position: 'absolute', width: 1, height: 1, padding: 0, margin: -1, overflow: 'hidden', clip: 'rect(0,0,0,0)', whiteSpace: 'nowrap', border: 0 }}>
+            PickleBella Park — Dink. Smash. Enjoy.
           </h1>
 
-          <p style={{ color: 'rgba(255,255,255,0.62)', fontSize: 'clamp(0.88rem, 2.5vw, 1.05rem)', lineHeight: 1.7, margin: '0 auto 2.25rem', maxWidth: '420px' }}>
+          <div className="pb-hero-badge-float" style={{ position: 'relative', display: 'inline-block', margin: '0 0 1.75rem' }} aria-hidden="true">
+            <div className="pb-hero-glow" style={{ position: 'absolute', inset: '8%', borderRadius: '50%', background: `radial-gradient(circle, ${PINK}55 0%, ${LIME}33 55%, transparent 75%)`, filter: 'blur(18px)', zIndex: 0 }} />
+            <img
+              src={heroBadgeImg}
+              alt=""
+              className="pb-hero-badge-in"
+              decoding="async"
+              style={{ position: 'relative', zIndex: 1, width: isMobile ? '150px' : 'clamp(170px, 16vw, 230px)', height: isMobile ? '150px' : 'clamp(170px, 16vw, 230px)', display: 'block', filter: 'drop-shadow(0 10px 30px rgba(0,0,0,0.35))' }}
+            />
+          </div>
+
+          <p className="pb-hero-fade" style={{ animationDelay: '0.3s', color: 'rgba(255,255,255,0.62)', fontSize: 'clamp(0.88rem, 2.5vw, 1.05rem)', lineHeight: 1.7, margin: '0 auto 2.25rem', maxWidth: '420px' }}>
             Book your court at PickleBella Park — 3 professional pickleball courts nestled in one beautiful outdoor venue.
           </p>
 
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
+          <div className="pb-hero-fade" style={{ animationDelay: '0.45s', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
             <button
               onClick={() => onReserve()}
-              style={{ backgroundColor: PINK, color: 'white', border: 'none', borderRadius: '999px', padding: isMobile ? '0.95rem 2.25rem' : '1rem 2.75rem', fontSize: isMobile ? '0.95rem' : '1rem', fontWeight: 600, cursor: 'pointer', fontFamily: FONT_BODY, letterSpacing: '0.01em', maxWidth: '100%' }}
-              onMouseEnter={e => { e.currentTarget.style.opacity = '0.88' }}
-              onMouseLeave={e => { e.currentTarget.style.opacity = '1' }}
+              className="pb-cta-pulse"
+              style={{ backgroundColor: PINK, color: 'white', border: 'none', borderRadius: '999px', padding: isMobile ? '0.95rem 2.25rem' : '1rem 2.75rem', fontSize: isMobile ? '0.95rem' : '1rem', fontWeight: 600, cursor: 'pointer', fontFamily: FONT_BODY, letterSpacing: '0.01em', maxWidth: '100%', transition: 'transform 0.2s, opacity 0.2s' }}
+              onMouseEnter={e => { e.currentTarget.style.opacity = '0.88'; e.currentTarget.style.transform = 'translateY(-2px)' }}
+              onMouseLeave={e => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.transform = 'translateY(0)' }}
             >
               Reserve a Court
             </button>
@@ -204,7 +217,7 @@ export default function LandingPage({ user, onReserve, onSignIn, onSignOut, onAd
           </div>
         </div>
 
-        <div style={{ position: 'absolute', bottom: '2.5rem', left: '50%', transform: 'translateX(-50%)', opacity: 0.35, display: isMobile ? 'none' : 'block' }}>
+        <div className="pb-scroll-cue" style={{ position: 'absolute', bottom: '2.5rem', left: '50%', display: isMobile ? 'none' : 'block' }}>
           <div style={{ width: '1px', height: '40px', background: 'linear-gradient(to bottom, transparent, white)', margin: '0 auto' }} />
         </div>
       </section>
