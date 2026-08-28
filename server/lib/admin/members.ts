@@ -72,6 +72,14 @@ export default withApi(async (req: VercelRequest, res: VercelResponse) => {
   const byEmail = new Map<string, Member>()
 
   for (const p of profiles ?? []) {
+    // A guest (anonymous sign-in) account has no email — profiles.email is
+    // nullable for exactly that reason (see migration
+    // 20250101000008_guest_and_phone_login.sql). This whole screen keys
+    // members by email (the PATCH handler above looks one up by it too), so
+    // an account with none isn't a "member" this view can show or manage;
+    // any paid booking it made under a typed contact email still surfaces
+    // below as a walk-in-style entry.
+    if (!p.email) continue
     byEmail.set(p.email.toLowerCase(), {
       name: p.name ?? '',
       email: p.email,
