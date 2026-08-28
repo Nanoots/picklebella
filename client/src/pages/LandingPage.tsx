@@ -1,6 +1,14 @@
 import logoImg from '@/imports/opt/logo.webp'
 import heroBadgeImg from '@/imports/opt/logo-hero.webp'
 import heroImg from '@/imports/opt/Court_1_2_3.webp'
+import heroSlide2 from '@/imports/opt/Court1.webp'
+import heroSlide3 from '@/imports/opt/Court2.webp'
+import heroSlide4 from '@/imports/opt/Court3.webp'
+
+// One slow crossfade per slide, no zoom/pan — index 0 is the LCP image and
+// stays loaded eagerly; the rest are decorative and can decode lazily.
+const HERO_SLIDES = [heroImg, heroSlide2, heroSlide3, heroSlide4]
+const HERO_SLIDESHOW_SECONDS = 32
 import type { User } from '../App'
 import * as api from '../lib/api'
 import type { Court, DayHours, HoursConfig } from '../lib/types'
@@ -160,18 +168,22 @@ export default function LandingPage({ user, onReserve, onSignIn, onSignOut, onAd
         {/* Bundled, not hot-linked. The CSP this site ships with is
             `img-src 'self' data: blob:`, so a remote image URL is blocked
             outright in production and the hero renders as a bare gradient. */}
-        <img
-          src={heroImg}
-          alt="PickleBella Park pickleball courts"
-          fetchPriority="high"
-          decoding="async"
-          className="pb-hero-bg"
-          style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', willChange: 'transform' }}
-        />
+        {HERO_SLIDES.map((slide, i) => (
+          <img
+            key={slide}
+            src={slide}
+            alt={i === 0 ? 'PickleBella Park pickleball courts' : ''}
+            fetchPriority={i === 0 ? 'high' : undefined}
+            loading={i === 0 ? undefined : 'lazy'}
+            decoding="async"
+            className="pb-hero-slide"
+            style={{ animationDuration: `${HERO_SLIDESHOW_SECONDS}s`, animationDelay: `${(i * HERO_SLIDESHOW_SECONDS) / HERO_SLIDES.length}s` }}
+          />
+        ))}
         <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(155deg, rgba(8,24,12,0.65) 0%, rgba(8,24,12,0.82) 100%)' }} />
 
         <div style={{ position: 'relative', zIndex: 1, textAlign: 'center', padding: isMobile ? '4rem 1.25rem 3.5rem' : '4.5rem 1.5rem 3rem', maxWidth: '700px', margin: '0 auto', width: '100%' }}>
-          <p className="pb-hero-fade" style={{ animationDelay: '0.05s', color: LIME, fontSize: isMobile ? '0.6rem' : '0.68rem', fontWeight: 700, letterSpacing: isMobile ? '0.16em' : '0.22em', textTransform: 'uppercase', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', flexWrap: 'nowrap' }}>
+          <p style={{ color: LIME, fontSize: isMobile ? '0.6rem' : '0.68rem', fontWeight: 700, letterSpacing: isMobile ? '0.16em' : '0.22em', textTransform: 'uppercase', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', flexWrap: 'nowrap' }}>
             <span style={{ display: 'inline-block', width: isMobile ? '14px' : '24px', height: '1px', backgroundColor: LIME, flexShrink: 0 }} />
             <span style={{ minWidth: 0 }}>PickleBella Park · 3 Courts</span>
             <span style={{ display: 'inline-block', width: isMobile ? '14px' : '24px', height: '1px', backgroundColor: LIME, flexShrink: 0 }} />
@@ -181,28 +193,26 @@ export default function LandingPage({ user, onReserve, onSignIn, onSignOut, onAd
             PickleBella Park — Dink. Smash. Enjoy.
           </h1>
 
-          <div className="pb-hero-badge-float" style={{ position: 'relative', display: 'inline-block', margin: '0 0 1.75rem' }} aria-hidden="true">
-            <div className="pb-hero-glow" style={{ position: 'absolute', inset: '8%', borderRadius: '50%', background: `radial-gradient(circle, ${PINK}55 0%, ${LIME}33 55%, transparent 75%)`, filter: 'blur(18px)', zIndex: 0 }} />
+          <div style={{ position: 'relative', display: 'inline-block', margin: '0 0 1.75rem' }} aria-hidden="true">
+            <div style={{ position: 'absolute', inset: '8%', borderRadius: '50%', background: `radial-gradient(circle, ${PINK}55 0%, ${LIME}33 55%, transparent 75%)`, filter: 'blur(18px)', zIndex: 0 }} />
             <img
               src={heroBadgeImg}
               alt=""
-              className="pb-hero-badge-in"
               decoding="async"
               style={{ position: 'relative', zIndex: 1, width: isMobile ? '150px' : 'clamp(170px, 16vw, 230px)', height: isMobile ? '150px' : 'clamp(170px, 16vw, 230px)', display: 'block', filter: 'drop-shadow(0 10px 30px rgba(0,0,0,0.35))' }}
             />
           </div>
 
-          <p className="pb-hero-fade" style={{ animationDelay: '0.3s', color: 'rgba(255,255,255,0.62)', fontSize: 'clamp(0.88rem, 2.5vw, 1.05rem)', lineHeight: 1.7, margin: '0 auto 2.25rem', maxWidth: '420px' }}>
+          <p style={{ color: 'rgba(255,255,255,0.62)', fontSize: 'clamp(0.88rem, 2.5vw, 1.05rem)', lineHeight: 1.7, margin: '0 auto 2.25rem', maxWidth: '420px' }}>
             Book your court at PickleBella Park — 3 professional pickleball courts nestled in one beautiful outdoor venue.
           </p>
 
-          <div className="pb-hero-fade" style={{ animationDelay: '0.45s', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
             <button
               onClick={() => onReserve()}
-              className="pb-cta-pulse"
-              style={{ backgroundColor: PINK, color: 'white', border: 'none', borderRadius: '999px', padding: isMobile ? '0.95rem 2.25rem' : '1rem 2.75rem', fontSize: isMobile ? '0.95rem' : '1rem', fontWeight: 600, cursor: 'pointer', fontFamily: FONT_BODY, letterSpacing: '0.01em', maxWidth: '100%', transition: 'transform 0.2s, opacity 0.2s' }}
-              onMouseEnter={e => { e.currentTarget.style.opacity = '0.88'; e.currentTarget.style.transform = 'translateY(-2px)' }}
-              onMouseLeave={e => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.transform = 'translateY(0)' }}
+              style={{ backgroundColor: PINK, color: 'white', border: 'none', borderRadius: '999px', padding: isMobile ? '0.95rem 2.25rem' : '1rem 2.75rem', fontSize: isMobile ? '0.95rem' : '1rem', fontWeight: 600, cursor: 'pointer', fontFamily: FONT_BODY, letterSpacing: '0.01em', maxWidth: '100%', transition: 'background-color 0.2s' }}
+              onMouseEnter={e => { e.currentTarget.style.backgroundColor = '#C31468' }}
+              onMouseLeave={e => { e.currentTarget.style.backgroundColor = PINK }}
             >
               Reserve a Court
             </button>
@@ -217,7 +227,7 @@ export default function LandingPage({ user, onReserve, onSignIn, onSignOut, onAd
           </div>
         </div>
 
-        <div className="pb-scroll-cue" style={{ position: 'absolute', bottom: '2.5rem', left: '50%', display: isMobile ? 'none' : 'block' }}>
+        <div style={{ position: 'absolute', bottom: '2.5rem', left: '50%', transform: 'translateX(-50%)', opacity: 0.35, display: isMobile ? 'none' : 'block' }}>
           <div style={{ width: '1px', height: '40px', background: 'linear-gradient(to bottom, transparent, white)', margin: '0 auto' }} />
         </div>
       </section>
