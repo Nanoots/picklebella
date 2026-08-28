@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Eye, EyeOff } from 'lucide-react'
 import logoImg from '@/imports/opt/logo.webp'
 import type { User } from '../App'
 import { continueAsGuest, requestPasswordReset, signIn, signUp } from '../lib/auth'
@@ -16,25 +17,45 @@ function Field({
   type?: string; placeholder: string; hint?: string
 }) {
   const [focused, setFocused] = useState(false)
+  // Only a password field ever gets the reveal toggle — everything else
+  // keeps rendering as whatever `type` it was given.
+  const isPassword = type === 'password'
+  const [revealed, setRevealed] = useState(false)
   return (
     <div>
       <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#374151', marginBottom: '6px' }}>{label}</label>
-      <input
-        type={type}
-        value={value}
-        onChange={e => onChange(e.target.value)}
-        placeholder={placeholder}
-        style={{
-          width: '100%', padding: '0.85rem 1rem', borderRadius: '10px',
-          border: `1.5px solid ${focused ? G : '#E5E7EB'}`,
-          fontSize: '0.95rem', outline: 'none', boxSizing: 'border-box',
-          fontFamily: FONT_BODY, color: '#111827', backgroundColor: 'white',
-          transition: 'border-color 0.15s, box-shadow 0.15s',
-          boxShadow: focused ? `0 0 0 3px ${G}1a` : 'none',
-        }}
-        onFocus={() => setFocused(true)}
-        onBlur={() => setFocused(false)}
-      />
+      <div style={{ position: 'relative' }}>
+        <input
+          type={isPassword && revealed ? 'text' : type}
+          value={value}
+          onChange={e => onChange(e.target.value)}
+          placeholder={placeholder}
+          style={{
+            width: '100%', padding: isPassword ? '0.85rem 2.75rem 0.85rem 1rem' : '0.85rem 1rem', borderRadius: '10px',
+            border: `1.5px solid ${focused ? G : '#E5E7EB'}`,
+            fontSize: '0.95rem', outline: 'none', boxSizing: 'border-box',
+            fontFamily: FONT_BODY, color: '#111827', backgroundColor: 'white',
+            transition: 'border-color 0.15s, box-shadow 0.15s',
+            boxShadow: focused ? `0 0 0 3px ${G}1a` : 'none',
+          }}
+          onFocus={() => setFocused(true)}
+          onBlur={() => setFocused(false)}
+        />
+        {isPassword && (
+          <button
+            type="button"
+            onClick={() => setRevealed(v => !v)}
+            aria-label={revealed ? 'Hide password' : 'Show password'}
+            style={{
+              position: 'absolute', top: 0, right: 0, height: '100%', width: '2.75rem',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              background: 'none', border: 'none', color: '#9CA3AF', cursor: 'pointer', padding: 0,
+            }}
+          >
+            {revealed ? <EyeOff size={17} /> : <Eye size={17} />}
+          </button>
+        )}
+      </div>
       {hint && <p style={{ fontSize: '0.78rem', color: '#9CA3AF', margin: '5px 0 0' }}>{hint}</p>}
     </div>
   )
