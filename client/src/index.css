@@ -66,10 +66,11 @@ button {
   min-height: 100svh;
 }
 
-/* Slow crossfade slideshow — each slide sits stacked and fades in for its
-   turn, no zoom/pan. Duration and per-slide delay are set together in
-   LandingPage.tsx (delay = index * duration/slideCount) so this one
-   keyframe works for any number of slides. */
+/* Slow morph slideshow — each slide sits stacked and dissolves into view
+   with a touch of scale + blur (rather than a flat opacity crossfade), then
+   holds perfectly still, then melts back out. Duration and per-slide delay
+   are set together in LandingPage.tsx (delay = index * duration/slideCount)
+   so this one keyframe works for any number of slides. */
 .pb-hero-slide {
   position: absolute;
   inset: 0;
@@ -83,11 +84,11 @@ button {
 }
 
 @keyframes pbSlideshow {
-  0% { opacity: 0; }
-  6% { opacity: 1; }
-  19% { opacity: 1; }
-  25% { opacity: 0; }
-  100% { opacity: 0; }
+  0% { opacity: 0; transform: scale(1.06); filter: blur(10px); }
+  8% { opacity: 1; transform: scale(1); filter: blur(0); }
+  19% { opacity: 1; transform: scale(1); filter: blur(0); }
+  25% { opacity: 0; transform: scale(0.96); filter: blur(10px); }
+  100% { opacity: 0; transform: scale(0.96); filter: blur(10px); }
 }
 
 /* ---------------------------------------------------------------
