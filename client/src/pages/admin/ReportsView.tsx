@@ -1,11 +1,11 @@
 import { useState } from 'react'
 import { RefreshCw } from 'lucide-react'
 import * as api from '../../lib/api'
-import type { MonthlyReport } from '../../lib/types'
+import type { MemberSummary, MonthlyReport } from '../../lib/types'
 import { fmtMoney, fmtHour, todayStr } from '../../lib/format'
 import { useAsync } from '../../lib/useAsync'
 import { ErrorBlock, LoadingBlock } from '../../components/States'
-import { G, FONT_BODY } from '../../lib/theme'
+import { G, FONT_BODY, FONT_DISPLAY } from '../../lib/theme'
 import { getPaymentMethod } from '../../lib/paymentMethods'
 import { StatCard, SectionCard, MonthYearPicker } from './shared'
 import { AreaChart, ColumnChart, HBarChart, VIZ } from './charts'
@@ -20,13 +20,16 @@ const EMPTY_REPORT: MonthlyReport = {
   hourlyBookingCounts: new Array(24).fill(0),
 }
 
-type Tab = 'overview' | 'revenue' | 'occupancy' | 'peak'
+type Tab = 'overview' | 'revenue' | 'occupancy' | 'peak' | 'leaderboard'
 const TABS: { key: Tab; label: string }[] = [
   { key: 'overview', label: 'Overview' },
   { key: 'revenue', label: 'Revenue' },
   { key: 'occupancy', label: 'Court occupancy' },
   { key: 'peak', label: 'Peak hours' },
+  { key: 'leaderboard', label: 'Leaderboard' },
 ]
+
+const MEDALS = ['🥇', '🥈', '🥉']
 
 export default function ReportsView() {
   const today = new Date(todayStr() + 'T00:00:00')
@@ -38,6 +41,18 @@ export default function ReportsView() {
   // which is the difference between a revenue figure and a customer list.
   const state = useAsync<MonthlyReport>(() => api.admin.getReport(year, month), [year, month])
   const report = state.data ?? EMPTY_REPORT
+
+  // Only fetched once the tab is actually opened — this is the one report
+  // that names customers rather than aggregating them away. All-time, not
+  // scoped to the month picker above: a leaderboard that resets every month
+  // would rank last month's top spender as a stranger.
+  const membersState = useAsync<MemberSummary[]>(
+    () => (tab === 'leaderboard' ? api.admin.listMembers() : Promise.resolve([])),
+    [tab === 'leaderboard'],
+  )
+  const leaderboard = [...(membersState.data ?? [])].sort((a, b) =>
+    b.bookingsCount - a.bookingsCount || b.totalSpent - a.totalSpent,
+  )
 
   const dailyRevenueData = report.dailyRevenue.map((d) => ({
     label: new Date(d.date + 'T00:00:00').getDate().toString(),
@@ -188,6 +203,45 @@ export default function ReportsView() {
             valueHeading="Bookings"
             emptyMessage="No bookings this period."
           />
+        </SectionCard>
+      )}
+
+      {tab === 'leaderboard' && (
+        <SectionCard title="Leaderboard" subtitle="Most active accounts, all time — ranked by bookings, then by spend">
+          {membersState.loading && !membersState.data && <LoadingBlock label="Loading leaderboard…" />}
+          {membersState.error && <ErrorBlock message={membersState.error} onRetry={membersState.reload} />}
+          {membersState.data && (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm border-collapse min-w-[560px]">
+                <thead>
+                  <tr className="text-left text-xs font-bold text-gray-400 uppercase tracking-wide border-b border-gray-100">
+                    <th className="py-2 pr-3">Rank</th>
+                    <th className="py-2 pr-3">Member</th>
+                    <th className="py-2 pr-3">Bookings</th>
+                    <th className="py-2 pr-3">Total Spent</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {leaderboard.map((m, i) => (
+                    <tr key={m.email} className="border-b border-gray-50">
+                      <td className="py-3 pr-3 font-bold text-gray-900" style={{ fontFamily: FONT_DISPLAY }}>
+                        {MEDALS[i] ?? `#${i + 1}`}
+                      </td>
+                      <td className="py-3 pr-3">
+                        <span className="font-semibold text-gray-900">{m.name || 'Unnamed'}</span><br />
+                        <span className="text-gray-400 text-xs">{m.email}</span>
+                      </td>
+                      <td className="py-3 pr-3">{m.bookingsCount}</td>
+                      <td className="py-3 pr-3 font-semibold" style={{ color: G }}>{fmtMoney(m.totalSpent)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {leaderboard.length === 0 && (
+                <div className="text-center text-gray-400 text-sm py-10">No paid bookings yet.</div>
+              )}
+            </div>
+          )}
         </SectionCard>
       )}
     </div>

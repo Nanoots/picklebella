@@ -146,11 +146,13 @@ export default function MembersView({ refreshKey, bookings, courts, refresh, sho
   const state = useAsync<MemberSummary[]>(() => api.admin.listMembers(), [refreshKey])
   const members = state.data ?? []
 
-  const filtered = members.filter((m) =>
-    !query.trim() ||
-    m.name.toLowerCase().includes(query.toLowerCase()) ||
-    m.email.toLowerCase().includes(query.toLowerCase()),
-  )
+  const filtered = members
+    .filter((m) =>
+      !query.trim() ||
+      m.name.toLowerCase().includes(query.toLowerCase()) ||
+      m.email.toLowerCase().includes(query.toLowerCase()),
+    )
+    .sort((a, b) => a.name.localeCompare(b.name))
   const selectedMember = members.find((m) => m.email === selected)
 
   return (

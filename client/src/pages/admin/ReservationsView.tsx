@@ -44,7 +44,9 @@ export default function ReservationsView({ bookings, courts, refresh, showToast 
     }
   }
 
-  let filtered = [...bookings].sort((a, b) => (a.date + a.startHour).localeCompare(b.date + String(b.startHour)))
+  // Newest-made booking first — this is a list of reservations coming in, not
+  // a schedule, so the thing staff want at the top is what just happened.
+  let filtered = [...bookings].sort((a, b) => b.createdAt.localeCompare(a.createdAt))
   if (courtFilter !== 'all') filtered = filtered.filter((b) => b.courtId === courtFilter)
   if (statusFilter !== 'all') filtered = filtered.filter((b) => b.status === statusFilter)
   if (dateFilter) filtered = filtered.filter((b) => b.date === dateFilter)
