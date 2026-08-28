@@ -15,7 +15,7 @@ import type { AvailabilityResponse } from '../lib/api'
 import type { Booking, Court, HoursConfig } from '../lib/types'
 import { OPEN_HOUR, CLOSE_HOUR } from '../lib/types'
 import { fmtDateLong, fmtHour, fmtMoney, todayStr, toLocalDateStr } from '../lib/format'
-import { useAsync, errorMessage } from '../lib/useAsync'
+import { useAsync } from '../lib/useAsync'
 import { useIsMobile, useIsNarrow } from '../lib/useMediaQuery'
 import { ErrorBlock, LoadingBlock } from '../components/States'
 import { BLUE, AVAILABLE_GREEN, FONT_BODY, FONT_DISPLAY, G_DARK, PINK } from '../lib/theme'
@@ -103,8 +103,6 @@ export default function BookingPage({ user, initialCourtId, initialTab, onBack, 
   // exists rather than making them press "Book Now" a second time.
   const [pendingBookingOpen, setPendingBookingOpen] = useState(false)
   const [activeTab, setActiveTab] = useState<Tab>(initialTab ?? 'Book')
-  const [cancellingId, setCancellingId] = useState<string | null>(null)
-  const [cancelError, setCancelError] = useState('')
   const gridWrapRef = useRef<HTMLDivElement>(null)
   const isMobile = useIsMobile()
   const isNarrow = useIsNarrow()
@@ -219,23 +217,6 @@ export default function BookingPage({ user, initialCourtId, initialTab, onBack, 
     return COURTS.find((c) => c.id === id)?.name ?? id
   }
 
-  async function handleCancel(id: string) {
-    if (cancellingId) return
-    setCancelError('')
-    setCancellingId(id)
-    try {
-      await api.cancelMyBooking(id)
-      myBookings.reload()
-      // A cancelled booking frees its slot immediately, so the grid the
-      // customer might switch back to should reflect that too.
-      availability.reload()
-    } catch (err) {
-      setCancelError(errorMessage(err))
-    } finally {
-      setCancellingId(null)
-    }
-  }
-
   const amenities = ['Free Parking', 'Restrooms', 'Equipment Rental', 'Seating Area', 'Night Lighting', 'Café']
 
   return (
@@ -340,46 +321,29 @@ export default function BookingPage({ user, initialCourtId, initialTab, onBack, 
                   <p style={{ color: '#9CA3AF', fontSize: '0.85rem', margin: 0 }}>Reserve a court from the Book tab and it'll show up here.</p>
                 </div>
               ) : (
-                <>
-                  {cancelError && (
-                    <div style={{ backgroundColor: '#FEE2E2', color: '#DC2626', fontSize: '0.82rem', padding: '0.7rem 0.9rem', borderRadius: '8px', marginBottom: '1rem', lineHeight: 1.5 }}>
-                      {cancelError}
-                    </div>
-                  )}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                    {(myBookings.data ?? []).map((b) => {
-                      const statusStyle = b.status === 'paid'
-                        ? { bg: '#DCFCE7', fg: '#15803D', label: 'Paid' }
-                        : b.status === 'pending'
-                          ? { bg: '#FEF3C7', fg: '#92400E', label: 'Pending' }
-                          : { bg: '#F3F4F6', fg: '#6B7280', label: 'Cancelled' }
-                      const canCancel = b.status === 'paid'
-                      return (
-                        <div key={b.id} style={{ border: '1px solid #E5E7EB', borderRadius: '12px', padding: isMobile ? '0.9rem' : '1.1rem', display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
-                          <div style={{ flex: 1, minWidth: '200px' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '0.3rem' }}>
-                              <span style={{ fontSize: '0.92rem', fontWeight: 700, color: '#111827' }}>{courtName(b.courtId)}</span>
-                              <span style={{ backgroundColor: statusStyle.bg, color: statusStyle.fg, fontSize: '0.65rem', fontWeight: 700, padding: '2px 8px', borderRadius: '999px', textTransform: 'uppercase' }}>{statusStyle.label}</span>
-                            </div>
-                            <p style={{ color: '#6B7280', fontSize: '0.82rem', margin: 0 }}>
-                              {fmtDateLong(b.date)} · {fmtHour(b.startHour)} – {fmtHour(b.startHour + b.duration)}
-                            </p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                  {(myBookings.data ?? []).map((b) => {
+                    const statusStyle = b.status === 'paid'
+                      ? { bg: '#DCFCE7', fg: '#15803D', label: 'Paid' }
+                      : b.status === 'pending'
+                        ? { bg: '#FEF3C7', fg: '#92400E', label: 'Pending' }
+                        : { bg: '#F3F4F6', fg: '#6B7280', label: 'Cancelled' }
+                    return (
+                      <div key={b.id} style={{ border: '1px solid #E5E7EB', borderRadius: '12px', padding: isMobile ? '0.9rem' : '1.1rem', display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+                        <div style={{ flex: 1, minWidth: '200px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '0.3rem' }}>
+                            <span style={{ fontSize: '0.92rem', fontWeight: 700, color: '#111827' }}>{courtName(b.courtId)}</span>
+                            <span style={{ backgroundColor: statusStyle.bg, color: statusStyle.fg, fontSize: '0.65rem', fontWeight: 700, padding: '2px 8px', borderRadius: '999px', textTransform: 'uppercase' }}>{statusStyle.label}</span>
                           </div>
-                          <span style={{ fontFamily: FONT_DISPLAY, fontSize: '1rem', fontWeight: 700, color: '#111827', flexShrink: 0 }}>{fmtMoney(b.amount)}</span>
-                          {canCancel && (
-                            <button
-                              onClick={() => void handleCancel(b.id)}
-                              disabled={cancellingId === b.id}
-                              style={{ background: 'none', border: '1.5px solid #FCA5A5', color: '#DC2626', borderRadius: '999px', padding: '0.5rem 1rem', fontSize: '0.78rem', fontWeight: 600, cursor: cancellingId === b.id ? 'default' : 'pointer', fontFamily: FONT_BODY, flexShrink: 0, opacity: cancellingId === b.id ? 0.6 : 1 }}
-                            >
-                              {cancellingId === b.id ? 'Cancelling…' : 'Cancel'}
-                            </button>
-                          )}
+                          <p style={{ color: '#6B7280', fontSize: '0.82rem', margin: 0 }}>
+                            {fmtDateLong(b.date)} · {fmtHour(b.startHour)} – {fmtHour(b.startHour + b.duration)}
+                          </p>
                         </div>
-                      )
-                    })}
-                  </div>
-                </>
+                        <span style={{ fontFamily: FONT_DISPLAY, fontSize: '1rem', fontWeight: 700, color: '#111827', flexShrink: 0 }}>{fmtMoney(b.amount)}</span>
+                      </div>
+                    )
+                  })}
+                </div>
               )}
             </div>
           ) : activeTab !== 'Book' ? (
