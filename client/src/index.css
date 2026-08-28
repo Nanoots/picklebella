@@ -66,30 +66,11 @@ button {
   min-height: 100svh;
 }
 
-/* Slow morph slideshow — each slide sits stacked and dissolves into view
-   with a touch of scale + blur (rather than a flat opacity crossfade), then
-   holds perfectly still, then melts back out. Duration and per-slide delay
-   are set together in LandingPage.tsx (delay = index * duration/slideCount)
-   so this one keyframe works for any number of slides. */
-.pb-hero-slide {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  opacity: 0;
-  animation-name: pbSlideshow;
-  animation-timing-function: ease-in-out;
-  animation-iteration-count: infinite;
-}
-
-@keyframes pbSlideshow {
-  0% { opacity: 0; transform: scale(1.06); filter: blur(10px); }
-  8% { opacity: 1; transform: scale(1); filter: blur(0); }
-  19% { opacity: 1; transform: scale(1); filter: blur(0); }
-  25% { opacity: 0; transform: scale(0.96); filter: blur(10px); }
-  100% { opacity: 0; transform: scale(0.96); filter: blur(10px); }
-}
+/* The hero slideshow's morph transition is driven from LandingPage.tsx as a
+   plain CSS transition (opacity/transform/filter) on the incoming photo,
+   layered on top of a base photo that never changes opacity — see
+   useHeroSlideshow. That keeps the base fully opaque throughout the
+   dissolve, so the dark hero overlay never shows through mid-transition. */
 
 /* ---------------------------------------------------------------
    Modal / bottom sheet

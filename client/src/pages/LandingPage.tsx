@@ -1,14 +1,8 @@
+import { useEffect, useRef, useState } from 'react'
 import logoImg from '@/imports/opt/logo.webp'
 import heroBadgeImg from '@/imports/opt/logo-hero.webp'
-import heroImg from '@/imports/opt/Court_1_2_3.webp'
-import heroSlide2 from '@/imports/opt/Court1.webp'
-import heroSlide3 from '@/imports/opt/Court2.webp'
-import heroSlide4 from '@/imports/opt/Court3.webp'
-
-// One slow crossfade per slide, no zoom/pan — index 0 is the LCP image and
-// stays loaded eagerly; the rest are decorative and can decode lazily.
-const HERO_SLIDES = [heroImg, heroSlide2, heroSlide3, heroSlide4]
-const HERO_SLIDESHOW_SECONDS = 32
+import heroImg from '@/imports/opt/Court123.webp'
+import heroSlide2 from '@/imports/opt/Court_1_2_3.webp'
 import type { User } from '../App'
 import * as api from '../lib/api'
 import type { Court, DayHours, HoursConfig } from '../lib/types'
@@ -17,6 +11,60 @@ import { useAsync } from '../lib/useAsync'
 import { useIsMobile, useIsNarrow } from '../lib/useMediaQuery'
 import { ErrorBlock, LoadingBlock } from '../components/States'
 import { G_DARK, PINK, LIME, FONT_BODY, FONT_DISPLAY } from '../lib/theme'
+
+// Only the two full-color aerial shots of the actual venue — the per-court
+// spotlight images (Court1/2/3, used on the booking page to highlight which
+// court is selected) desaturate the other two courts, which is what was
+// reading as a "gray" flash when they turned up in this rotation.
+// index 0 is the LCP image and stays loaded eagerly; the rest only fetch once
+// the slideshow reaches them.
+const HERO_SLIDES = [heroImg, heroSlide2]
+const HERO_SLIDE_HOLD_MS = 8000 // each photo shows fully still for at least this long
+const HERO_MORPH_MS = 1800 // the next photo dissolves in over the base — the base itself never moves
+
+/** Drives the hero background: `index` is the photo shown as a static, fully
+ * opaque base layer; `incomingIndex` (while set) is the next photo dissolving
+ * in on top of it. Because the base layer never drops below full opacity,
+ * the dark hero overlay never shows through mid-transition — the only thing
+ * blending is photo over photo. */
+function useHeroSlideshow(count: number) {
+  const [index, setIndex] = useState(0)
+  const [incomingIndex, setIncomingIndex] = useState<number | null>(null)
+  const [morphing, setMorphing] = useState(false)
+  const indexRef = useRef(0)
+  indexRef.current = index
+
+  useEffect(() => {
+    if (count < 2) return
+    let raf1 = 0
+    let raf2 = 0
+    let settleTimer = 0
+    const hold = setInterval(() => {
+      const next = (indexRef.current + 1) % count
+      setIncomingIndex(next)
+      setMorphing(false)
+      // Mount the incoming photo at its hidden/blurred starting style first,
+      // then flip it to visible a frame later so the CSS transition actually
+      // has a "from" state to animate away from instead of snapping.
+      raf1 = requestAnimationFrame(() => {
+        raf2 = requestAnimationFrame(() => setMorphing(true))
+      })
+      settleTimer = window.setTimeout(() => {
+        setIndex(next)
+        setIncomingIndex(null)
+        setMorphing(false)
+      }, HERO_MORPH_MS)
+    }, HERO_SLIDE_HOLD_MS)
+    return () => {
+      clearInterval(hold)
+      cancelAnimationFrame(raf1)
+      cancelAnimationFrame(raf2)
+      clearTimeout(settleTimer)
+    }
+  }, [count])
+
+  return { index, incomingIndex, morphing }
+}
 
 interface Props {
   user: User | null
@@ -97,6 +145,7 @@ export default function LandingPage({ user, onReserve, onSignIn, onSignOut, onAd
   const today = todayStr()
   const isMobile = useIsMobile()
   const isNarrow = useIsNarrow()
+  const heroSlideshow = useHeroSlideshow(HERO_SLIDES.length)
 
   const venue = useAsync<{ courts: Court[]; hours: HoursConfig }>(async (signal) => {
     const [courts, config] = await Promise.all([api.getCourts(signal), api.getConfig(signal)])
@@ -168,18 +217,27 @@ export default function LandingPage({ user, onReserve, onSignIn, onSignOut, onAd
         {/* Bundled, not hot-linked. The CSP this site ships with is
             `img-src 'self' data: blob:`, so a remote image URL is blocked
             outright in production and the hero renders as a bare gradient. */}
-        {HERO_SLIDES.map((slide, i) => (
+        <img
+          src={HERO_SLIDES[heroSlideshow.index]}
+          alt="PickleBella Park pickleball courts"
+          fetchPriority="high"
+          decoding="async"
+          style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }}
+        />
+        {heroSlideshow.incomingIndex !== null && (
           <img
-            key={slide}
-            src={slide}
-            alt={i === 0 ? 'PickleBella Park pickleball courts' : ''}
-            fetchPriority={i === 0 ? 'high' : undefined}
-            loading={i === 0 ? undefined : 'lazy'}
+            src={HERO_SLIDES[heroSlideshow.incomingIndex]}
+            alt=""
             decoding="async"
-            className="pb-hero-slide"
-            style={{ animationDuration: `${HERO_SLIDESHOW_SECONDS}s`, animationDelay: `${(i * HERO_SLIDESHOW_SECONDS) / HERO_SLIDES.length}s` }}
+            style={{
+              position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover',
+              opacity: heroSlideshow.morphing ? 1 : 0,
+              transform: heroSlideshow.morphing ? 'scale(1)' : 'scale(1.05)',
+              filter: heroSlideshow.morphing ? 'blur(0px)' : 'blur(10px)',
+              transition: `opacity ${HERO_MORPH_MS}ms ease-in-out, transform ${HERO_MORPH_MS}ms ease-in-out, filter ${HERO_MORPH_MS}ms ease-in-out`,
+            }}
           />
-        ))}
+        )}
         <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(155deg, rgba(8,24,12,0.65) 0%, rgba(8,24,12,0.82) 100%)' }} />
 
         <div style={{ position: 'relative', zIndex: 1, textAlign: 'center', padding: isMobile ? '4rem 1.25rem 3.5rem' : '4.5rem 1.5rem 3rem', maxWidth: '700px', margin: '0 auto', width: '100%' }}>
