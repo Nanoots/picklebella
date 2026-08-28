@@ -105,8 +105,16 @@ export const createBookingRequest = z.object({
   paymentMethod,
   name: text(120).min(1, 'Please enter a name.'),
   phone,
+  // Only reached for a guest (anonymous) caller, whose auth identity has no
+  // email of its own — see api/bookings/index.ts. A signed-in customer's
+  // email comes from their verified account instead, never from this field.
+  email: email.or(z.literal('')).optional(),
   players: z.number().int().min(1).max(20),
   notes: text(500).default(''),
+})
+
+export const resolveLoginIdentifier = z.object({
+  identifier: text(254).min(1, 'Enter your email or mobile number.'),
 })
 
 export const adminBookingQuery = z.object({

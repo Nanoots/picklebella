@@ -54,13 +54,23 @@ functions the webhook calls. Paste it into the Supabase SQL editor and run it.
 Until it is applied, `POST /api/bookings` will fail — the API calls
 `create_bookings` with arguments the old function does not have.
 
-Two things to set in the dashboard:
+Three things to set in the dashboard:
 
 - **Authentication → Providers → Email**: turn on *Confirm email*. Without it,
   anyone can sign up as any address, including one that looks like staff.
 - **Authentication → URL Configuration**: set Site URL to the client's deployed
   URL and add it to Redirect URLs, so confirmation and password-reset links
   come back to the right place.
+- **Authentication → Providers → Anonymous Sign-Ins**: turn this on. It is
+  what powers "Continue as Guest" — a real, if disposable, session with no
+  email or password, so a visitor can pay without creating an account. It
+  reuses the same booking/payment endpoints as everyone else (see
+  `client/src/lib/auth.ts`'s `continueAsGuest`), so nothing else needs
+  enabling for it to work. Supabase also recommends turning on CAPTCHA
+  (Authentication → Attack Protection) to keep the anonymous endpoint from
+  being used to inflate the user count — migration
+  `20250101000008_guest_and_phone_login.sql` is the schema half of this (it
+  makes `profiles.email` nullable, since an anonymous account has none).
 
 ## 3. Local development
 

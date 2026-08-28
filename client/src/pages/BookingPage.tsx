@@ -80,20 +80,36 @@ function isPastSlot(dateStr: string, hour: number) {
 }
 
 interface Props {
-  user: User
+  /** Null for a visitor who hasn't signed in or continued as a guest yet —
+   * browsing and picking slots never required an account. BookingModal is
+   * what asks for one, right before payment. */
+  user: User | null
   initialCourtId?: string | null
   onBack: () => void
+  onSignIn: () => void
   onSignOut: () => void
 }
 
-export default function BookingPage({ user, initialCourtId, onBack, onSignOut }: Props) {
+export default function BookingPage({ user, initialCourtId, onBack, onSignIn, onSignOut }: Props) {
   const [curDate, setCurDate] = useState(new Date())
   const [selected, setSelected] = useState<SelectedSlot[]>([])
   const [showModal, setShowModal] = useState(false)
+  // Set when "Book Now" is pressed signed out — pricing a basket needs a
+  // session (real or guest), so the sign-in modal opens instead of the
+  // booking modal, and this remembers to open the booking modal once one
+  // exists rather than making them press "Book Now" a second time.
+  const [pendingBookingOpen, setPendingBookingOpen] = useState(false)
   const [activeTab, setActiveTab] = useState<Tab>('Book')
   const gridWrapRef = useRef<HTMLDivElement>(null)
   const isMobile = useIsMobile()
   const isNarrow = useIsNarrow()
+
+  useEffect(() => {
+    if (user && pendingBookingOpen) {
+      setPendingBookingOpen(false)
+      setShowModal(true)
+    }
+  }, [user, pendingBookingOpen])
 
   const ds = dateStr(curDate)
   const isToday = ds === todayStr()
@@ -115,7 +131,12 @@ export default function BookingPage({ user, initialCourtId, onBack, onSignOut }:
   // The availability endpoint deliberately returns no personal data — a slot
   // someone else holds is just 'booked'. To label the customer's OWN slots we
   // ask for their bookings separately, which is the only list they may read.
-  const myBookings = useAsync<Booking[]>((signal) => api.getMyBookings(signal), [])
+  // Skipped entirely while browsing signed out, rather than firing a request
+  // that can only 401.
+  const myBookings = useAsync<Booking[]>(
+    (signal) => (user ? api.getMyBookings(signal) : Promise.resolve([])),
+    [Boolean(user)],
+  )
 
   const dayHours = availability.data
     ? (Object.values(availability.data)[0]?.hours ?? { open: OPEN_HOUR, close: CLOSE_HOUR, closed: false })
@@ -211,15 +232,26 @@ export default function BookingPage({ user, initialCourtId, onBack, onSignOut }:
                 <span style={{ color: '#9CA3AF', fontSize: '0.85rem', cursor: 'default' }}>Community</span>
                 <span style={{ color: '#9CA3AF', fontSize: '0.85rem', cursor: 'default' }}>Tournaments</span>
                 <span style={{ width: '1px', height: '18px', backgroundColor: '#E5E7EB' }} />
-                <span style={{ color: '#9CA3AF', fontSize: '0.82rem' }}>Hi, {user.name.split(' ')[0]}</span>
+                {user?.name && (
+                  <span style={{ color: '#9CA3AF', fontSize: '0.82rem' }}>Hi, {user.name.split(' ')[0]}</span>
+                )}
               </>
             )}
-            <button
-              onClick={onSignOut}
-              style={{ color: '#6B7280', background: 'none', border: '1px solid #E5E7EB', borderRadius: '999px', padding: '0.35rem 0.875rem', fontSize: '0.75rem', cursor: 'pointer', fontFamily: FONT_BODY, whiteSpace: 'nowrap' }}
-            >
-              Sign Out
-            </button>
+            {user ? (
+              <button
+                onClick={onSignOut}
+                style={{ color: '#6B7280', background: 'none', border: '1px solid #E5E7EB', borderRadius: '999px', padding: '0.35rem 0.875rem', fontSize: '0.75rem', cursor: 'pointer', fontFamily: FONT_BODY, whiteSpace: 'nowrap' }}
+              >
+                Sign Out
+              </button>
+            ) : (
+              <button
+                onClick={onSignIn}
+                style={{ color: 'white', background: G_DARK, border: `1px solid ${G_DARK}`, borderRadius: '999px', padding: '0.35rem 0.875rem', fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer', fontFamily: FONT_BODY, whiteSpace: 'nowrap' }}
+              >
+                Sign In
+              </button>
+            )}
           </div>
         </div>
       </nav>
@@ -539,7 +571,15 @@ export default function BookingPage({ user, initialCourtId, onBack, onSignOut }:
             </p>
           </div>
           <button
-            onClick={() => hasSelection && setShowModal(true)}
+            onClick={() => {
+              if (!hasSelection) return
+              // Pricing the basket needs a session — real or guest. Browsing
+              // and picking slots never did, so this is the first point a
+              // signed-out visitor is asked for one; see the effect above
+              // for what happens once they have it.
+              if (!user) { setPendingBookingOpen(true); onSignIn(); return }
+              setShowModal(true)
+            }}
             disabled={!hasSelection}
             style={{
               backgroundColor: hasSelection ? '#111827' : '#E5E7EB',
@@ -556,7 +596,7 @@ export default function BookingPage({ user, initialCourtId, onBack, onSignOut }:
         </div>
       </div>
 
-      {showModal && (
+      {showModal && user && (
         <BookingModal
           user={user}
           slots={selected}

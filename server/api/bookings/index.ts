@@ -89,7 +89,10 @@ export default withApi(async (req: VercelRequest, res: VercelResponse) => {
     })),
     p_name: input.name,
     p_phone: input.phone,
-    p_email: caller.email,
+    // A signed-in customer's email is their verified account's — never the
+    // request body's. A guest (anonymous) caller has no account email at
+    // all, so this is the only path where input.email is used.
+    p_email: caller.email || input.email || '',
     p_players: input.players,
     p_notes: input.notes,
     p_payment_method: input.paymentMethod,
@@ -145,7 +148,7 @@ export default withApi(async (req: VercelRequest, res: VercelResponse) => {
     const paymentMethodId = await createPaymentMethod({
       gatewayType: gateway.gateway,
       name: input.name,
-      email: caller.email,
+      email: caller.email || input.email || '',
       phone: input.phone,
     })
 

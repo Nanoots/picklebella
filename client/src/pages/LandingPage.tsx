@@ -241,7 +241,7 @@ export default function LandingPage({ user, onReserve, onSignIn, onSignOut, onAd
         <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(155deg, rgba(8,24,12,0.65) 0%, rgba(8,24,12,0.82) 100%)' }} />
 
         <div style={{ position: 'relative', zIndex: 1, textAlign: 'center', padding: isMobile ? '4rem 1.25rem 3.5rem' : '4.5rem 1.5rem 3rem', maxWidth: '700px', margin: '0 auto', width: '100%' }}>
-          <p style={{ color: LIME, fontSize: isMobile ? '0.6rem' : '0.68rem', fontWeight: 700, letterSpacing: isMobile ? '0.16em' : '0.22em', textTransform: 'uppercase', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', flexWrap: 'nowrap' }}>
+          <p style={{ color: LIME, fontSize: isMobile ? '0.68rem' : '0.75rem', fontWeight: 700, letterSpacing: isMobile ? '0.16em' : '0.2em', textTransform: 'uppercase', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', flexWrap: 'nowrap' }}>
             <span style={{ display: 'inline-block', width: isMobile ? '14px' : '24px', height: '1px', backgroundColor: LIME, flexShrink: 0 }} />
             <span style={{ minWidth: 0 }}>PickleBella Park · 3 Courts</span>
             <span style={{ display: 'inline-block', width: isMobile ? '14px' : '24px', height: '1px', backgroundColor: LIME, flexShrink: 0 }} />
@@ -261,27 +261,19 @@ export default function LandingPage({ user, onReserve, onSignIn, onSignOut, onAd
             />
           </div>
 
-          <p style={{ color: 'rgba(255,255,255,0.62)', fontSize: 'clamp(0.88rem, 2.5vw, 1.05rem)', lineHeight: 1.7, margin: '0 auto 2.25rem', maxWidth: '420px' }}>
+          <p style={{ color: 'rgba(255,255,255,0.68)', fontSize: 'clamp(0.95rem, 2.5vw, 1.15rem)', lineHeight: 1.7, margin: '0 auto 2.25rem', maxWidth: '440px' }}>
             Book your court at PickleBella Park — 3 professional pickleball courts nestled in one beautiful outdoor venue.
           </p>
 
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
             <button
               onClick={() => onReserve()}
-              style={{ backgroundColor: PINK, color: 'white', border: 'none', borderRadius: '999px', padding: isMobile ? '0.95rem 2.25rem' : '1rem 2.75rem', fontSize: isMobile ? '0.95rem' : '1rem', fontWeight: 600, cursor: 'pointer', fontFamily: FONT_BODY, letterSpacing: '0.01em', maxWidth: '100%', transition: 'background-color 0.2s' }}
+              style={{ backgroundColor: PINK, color: 'white', border: 'none', borderRadius: '999px', padding: isMobile ? '1rem 2.5rem' : '1.05rem 3rem', fontSize: isMobile ? '1rem' : '1.05rem', fontWeight: 600, cursor: 'pointer', fontFamily: FONT_BODY, letterSpacing: '0.01em', maxWidth: '100%', transition: 'background-color 0.2s' }}
               onMouseEnter={e => { e.currentTarget.style.backgroundColor = '#C31468' }}
               onMouseLeave={e => { e.currentTarget.style.backgroundColor = PINK }}
             >
               Reserve a Court
             </button>
-            {!user && (
-              <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.78rem' }}>
-                <button onClick={onSignIn} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.65)', cursor: 'pointer', textDecoration: 'underline', fontSize: '0.78rem', fontFamily: FONT_BODY, padding: 0 }}>
-                  Sign in
-                </button>
-                {' '}required to complete a booking
-              </p>
-            )}
           </div>
         </div>
 

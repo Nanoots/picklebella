@@ -42,7 +42,6 @@ export default function App() {
   const [authReady, setAuthReady] = useState(false)
   const [showAuth, setShowAuth] = useState(false)
   const [showAdminAuth, setShowAdminAuth] = useState(false)
-  const [pendingNav, setPendingNav] = useState(false)
   const [pendingCourtId, setPendingCourtId] = useState<string | null>(null)
 
   useEffect(() => {
@@ -89,23 +88,19 @@ export default function App() {
     window.scrollTo(0, 0)
   }
 
+  /* Browsing the booking grid never required an account — the sign-in
+     prompt only used to fire here, before the visitor had seen a single
+     court or time slot. It now waits until they actually try to pay (see
+     BookingModal's onRequireAuth), so someone can look around the site
+     first and decide. */
   function handleReserve(courtId?: string) {
     setPendingCourtId(courtId ?? null)
-    if (user) {
-      navigate('booking')
-    } else {
-      setPendingNav(true)
-      setShowAuth(true)
-    }
+    navigate('booking')
   }
 
   function handleAuthSuccess(u: User) {
     setUser(u)
     setShowAuth(false)
-    if (pendingNav) {
-      navigate('booking')
-      setPendingNav(false)
-    }
   }
 
   async function handleSignOut() {
@@ -152,12 +147,13 @@ export default function App() {
         <Suspense fallback={<LoadingBlock label="Loading admin…" pad="6rem" />}>
           <AdminPage onExit={() => navigate('home')} onLogout={() => { void handleAdminLogout() }} />
         </Suspense>
-      ) : page === 'booking' && user ? (
+      ) : page === 'booking' ? (
         <Suspense fallback={<LoadingBlock label="Loading courts…" pad="6rem" />}>
           <BookingPage
             user={user}
             initialCourtId={pendingCourtId}
             onBack={() => { setPendingCourtId(null); navigate('home') }}
+            onSignIn={() => setShowAuth(true)}
             onSignOut={() => { void handleSignOut() }}
           />
         </Suspense>
@@ -173,10 +169,7 @@ export default function App() {
 
       {showAuth && (
         <AuthModal
-          onClose={() => {
-            setShowAuth(false)
-            setPendingNav(false)
-          }}
+          onClose={() => setShowAuth(false)}
           onSuccess={handleAuthSuccess}
         />
       )}

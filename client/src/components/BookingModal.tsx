@@ -57,27 +57,125 @@ function InputField({ label, value, onChange, type = 'text', placeholder, hint }
   const [focused, setFocused] = useState(false)
   return (
     <div>
-      <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: '#111827', marginBottom: '5px' }}>{label}</label>
+      <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#111827', marginBottom: '6px' }}>{label}</label>
       <input
         type={type}
         value={value}
         onChange={e => onChange(e.target.value)}
         placeholder={placeholder}
         style={{
-          width: '100%', padding: '0.75rem 1rem', borderRadius: '10px',
+          width: '100%', padding: '0.85rem 1rem', borderRadius: '10px',
           border: `1.5px solid ${focused ? G : '#E5E7EB'}`,
-          fontSize: '0.875rem', outline: 'none', boxSizing: 'border-box',
-          fontFamily: FONT_BODY, color: '#111827', backgroundColor: 'white', transition: 'border-color 0.15s',
+          fontSize: '0.95rem', outline: 'none', boxSizing: 'border-box',
+          fontFamily: FONT_BODY, color: '#111827', backgroundColor: 'white',
+          transition: 'border-color 0.15s, box-shadow 0.15s',
+          boxShadow: focused ? `0 0 0 3px ${G}1a` : 'none',
         }}
         onFocus={() => setFocused(true)}
         onBlur={() => setFocused(false)}
       />
-      {hint && <p style={{ fontSize: '0.72rem', color: '#9CA3AF', margin: '4px 0 0' }}>{hint}</p>}
+      {hint && <p style={{ fontSize: '0.78rem', color: '#9CA3AF', margin: '5px 0 0' }}>{hint}</p>}
     </div>
   )
 }
 
+/** A pill button with a hover/press lift, shared by every action in this
+ * modal (Next, Back, Pay, cancel/waiver confirmations) so they read as one
+ * consistent set rather than each having its own static state. */
+function PillButton({
+  onClick, disabled, flex, bg, hoverBg, color, border, type = 'button', children,
+}: {
+  onClick?: () => void
+  disabled?: boolean
+  flex?: number
+  bg: string
+  hoverBg: string
+  color: string
+  border?: string
+  type?: 'button' | 'submit'
+  children: React.ReactNode
+}) {
+  const [hover, setHover] = useState(false)
+  return (
+    <button
+      type={type}
+      onClick={onClick}
+      disabled={disabled}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      style={{
+        flex, padding: '0.9rem', borderRadius: '999px',
+        border: border ?? 'none',
+        backgroundColor: disabled ? '#E5E7EB' : hover ? hoverBg : bg,
+        color: disabled ? '#9CA3AF' : color,
+        fontSize: '0.92rem', fontWeight: 600, cursor: disabled ? 'default' : 'pointer',
+        fontFamily: FONT_BODY, transition: 'background-color 0.15s, transform 0.15s',
+        transform: hover && !disabled ? 'translateY(-1px)' : 'translateY(0)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+      }}
+    >
+      {children}
+    </button>
+  )
+}
+
+/** One row in the payment method list. Selected and disabled both have their
+ * own static look already (see the border/background passed in); hover only
+ * needs to add feedback for the remaining case — an unselected, clickable
+ * row someone is about to pick. */
+function PaymentMethodRow({
+  selected, disabled, onClick, children,
+}: {
+  selected: boolean
+  disabled: boolean
+  onClick: () => void
+  children: React.ReactNode
+}) {
+  const [hover, setHover] = useState(false)
+  const isMobile = useIsMobile()
+  return (
+    <button
+      disabled={disabled}
+      onClick={onClick}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      style={{
+        display: 'flex', alignItems: 'center', gap: isMobile ? '0.6rem' : '0.875rem',
+        padding: isMobile ? '0.85rem 0.8rem' : '0.95rem 1.1rem', borderRadius: '12px', textAlign: 'left',
+        border: `1.5px solid ${selected ? G : hover && !disabled ? '#C7D2CC' : '#E5E7EB'}`,
+        backgroundColor: selected ? '#F0FDF4' : disabled ? '#FAFAFA' : hover ? '#FAFBFA' : 'white',
+        cursor: disabled ? 'not-allowed' : 'pointer', transition: 'all 0.15s',
+      }}
+    >
+      {children}
+    </button>
+  )
+}
+
+function CloseButton({ onClick }: { onClick: () => void }) {
+  const [hover, setHover] = useState(false)
+  return (
+    <button
+      onClick={onClick}
+      aria-label="Close"
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      style={{
+        width: '30px', height: '30px', borderRadius: '50%', border: 'none',
+        background: hover ? '#F3F4F6' : 'none', color: hover ? '#374151' : '#9CA3AF',
+        cursor: 'pointer', fontSize: '1.1rem', display: 'flex', alignItems: 'center', justifyContent: 'center',
+        flexShrink: 0, transition: 'background-color 0.15s, color 0.15s',
+      }}
+    >
+      ✕
+    </button>
+  )
+}
+
 interface Props {
+  /** BookingPage only ever mounts this once a session — real or guest —
+   * exists, since pricing the basket (below) needs one; see the "Book Now"
+   * handler there for where sign-in is actually asked for. */
   user: User
   slots: SelectedSlot[]
   /** Courts already loaded by the booking page, for names in the summary. */
@@ -93,7 +191,7 @@ export default function BookingModal({ user, slots, courts, onClose }: Props) {
   const [timeLeft, setTimeLeft] = useState(900)
   const [fullName, setFullName] = useState(user.name)
   const [email, setEmail] = useState(user.email)
-  const [phone, setPhone] = useState(user.phone || '')
+  const [phone, setPhone] = useState(user.phone)
   const [payMethod, setPayMethod] = useState('instapay')
   const [check1, setCheck1] = useState(false)
   const [check2, setCheck2] = useState(false)
@@ -224,7 +322,6 @@ export default function BookingModal({ user, slots, courts, onClose }: Props) {
   function handleNext() {
     setFormError('')
     if (!fullName.trim()) { setFormError('Please enter your full name.'); return }
-    if (!email.trim()) { setFormError('Please enter your email address.'); return }
     if (!phone.trim()) { setFormError('Please enter your mobile number.'); return }
     setStep(2)
   }
@@ -246,6 +343,9 @@ export default function BookingModal({ user, slots, courts, onClose }: Props) {
         paymentMethod: payMethod,
         name: fullName.trim(),
         phone: phone.trim(),
+        // Only actually used for a guest session, which has no account email
+        // of its own — see server/api/bookings/index.ts.
+        email: email.trim(),
         players: 4,
         notes: appliedCode ? `Promo: ${appliedCode}` : '',
       })
@@ -280,12 +380,12 @@ export default function BookingModal({ user, slots, courts, onClose }: Props) {
   // QR Ph: the customer scans this with their own banking app, then comes back.
   if (qrImage) {
     return (
-      <div style={{ position: 'fixed', inset: 0, zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: isMobile ? '0.75rem' : '1rem', backgroundColor: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(8px)' }}>
-        <div className="pb-sheet" style={{ backgroundColor: 'white', borderRadius: '20px', maxWidth: '420px', width: '100%', overflowY: 'auto', padding: isMobile ? '1.75rem 1.25rem' : '2.25rem 2rem', textAlign: 'center', boxShadow: '0 32px 80px rgba(0,0,0,0.25)' }}>
-          <h2 style={{ fontFamily: FONT_DISPLAY, color: G_DARK, fontSize: isMobile ? '1.3rem' : '1.5rem', fontWeight: 700, margin: '0 0 0.375rem' }}>
+      <div className="pb-modal-backdrop" style={{ position: 'fixed', inset: 0, zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: isMobile ? '0.75rem' : '1rem', backgroundColor: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(8px)' }}>
+        <div className="pb-sheet pb-modal-panel" style={{ backgroundColor: 'white', borderRadius: '20px', maxWidth: '420px', width: '100%', overflowY: 'auto', padding: isMobile ? '1.75rem 1.25rem' : '2.25rem 2rem', textAlign: 'center', boxShadow: '0 32px 80px rgba(0,0,0,0.25)' }}>
+          <h2 style={{ fontFamily: FONT_DISPLAY, color: G_DARK, fontSize: isMobile ? '1.35rem' : '1.55rem', fontWeight: 700, margin: '0 0 0.4rem' }}>
             Scan to pay {fmtMoney(finalTotal)}
           </h2>
-          <p style={{ color: '#6B7280', fontSize: '0.85rem', margin: '0 0 1.25rem', lineHeight: 1.6 }}>
+          <p style={{ color: '#6B7280', fontSize: '0.9rem', margin: '0 0 1.25rem', lineHeight: 1.6 }}>
             Open any bank or e-wallet app that supports QR Ph and scan this code.
           </p>
 
@@ -295,17 +395,17 @@ export default function BookingModal({ user, slots, courts, onClose }: Props) {
             style={{ width: '100%', maxWidth: '260px', margin: '0 auto 1.25rem', display: 'block', borderRadius: '12px' }}
           />
 
-          <p style={{ color: '#9CA3AF', fontSize: '0.78rem', margin: '0 0 1.5rem', lineHeight: 1.6 }}>
+          <p style={{ color: '#9CA3AF', fontSize: '0.82rem', margin: '0 0 1.5rem', lineHeight: 1.6 }}>
             Your courts are held until the timer runs out. This page updates once
             the payment clears.
           </p>
 
-          <button
+          <PillButton
             onClick={() => window.location.replace(`/?payment=${encodeURIComponent(qrIntentId)}`)}
-            style={{ backgroundColor: G, color: 'white', border: 'none', borderRadius: '999px', padding: '0.85rem 2.25rem', fontSize: '0.9rem', fontWeight: 600, cursor: 'pointer', fontFamily: FONT_BODY, width: '100%' }}
+            bg={G} hoverBg={G_DARK} color="white"
           >
             I've paid — check now
-          </button>
+          </PillButton>
         </div>
       </div>
     )
@@ -313,6 +413,7 @@ export default function BookingModal({ user, slots, courts, onClose }: Props) {
 
   return (
     <div
+      className="pb-modal-backdrop"
       style={{ position: 'fixed', inset: 0, zIndex: 100, display: 'flex', alignItems: isMobile ? 'flex-end' : 'center', justifyContent: 'center', padding: isMobile ? 0 : '1rem', backgroundColor: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(8px)' }}
       onClick={e => e.target === e.currentTarget && requestClose()}
     >
@@ -322,7 +423,7 @@ export default function BookingModal({ user, slots, courts, onClose }: Props) {
           it needs a `dvh` value (which tracks the viewport as the mobile URL
           bar slides away) with a `vh` fallback under it. */}
       <div
-        className="pb-sheet"
+        className="pb-sheet pb-modal-panel"
         style={{
           backgroundColor: 'white',
           borderRadius: isMobile ? '20px 20px 0 0' : '20px',
@@ -337,14 +438,14 @@ export default function BookingModal({ user, slots, courts, onClose }: Props) {
         <div style={{ padding: isMobile ? '1.1rem 1.1rem 0' : '1.625rem 1.75rem 0', position: 'sticky', top: 0, backgroundColor: 'white', zIndex: 1, borderRadius: '20px 20px 0 0' }}>
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '0.25rem' }}>
             <div style={{ flex: 1 }}>
-              <p style={{ margin: '0 0 3px', fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.08em' }}>
+              <p style={{ margin: '0 0 4px', fontSize: '0.75rem', fontWeight: 700, letterSpacing: '0.08em' }}>
                 <span style={{ color: G }}>STEP {step}</span>
                 <span style={{ color: '#9CA3AF' }}> OF 2</span>
               </p>
-              <h2 style={{ fontFamily: FONT_DISPLAY, color: G_DARK, fontSize: isMobile ? '1.2rem' : '1.45rem', fontWeight: 700, margin: 0 }}>
+              <h2 style={{ fontFamily: FONT_DISPLAY, color: G_DARK, fontSize: isMobile ? '1.3rem' : '1.55rem', fontWeight: 700, margin: 0 }}>
                 {step === 1 ? 'Booking Details' : 'Payment & Confirmation'}
               </h2>
-              <p style={{ color: '#9CA3AF', fontSize: '0.78rem', margin: '3px 0 0' }}>
+              <p style={{ color: '#9CA3AF', fontSize: '0.85rem', margin: '4px 0 0' }}>
                 {step === 1 ? 'Review your booking and enter your details' : 'Complete payment and confirm your reservation'}
               </p>
             </div>
@@ -353,20 +454,14 @@ export default function BookingModal({ user, slots, courts, onClose }: Props) {
                 display: 'flex', alignItems: 'center', gap: '6px',
                 backgroundColor: timerUrgent ? '#FEE2E2' : '#F3F4F6',
                 color: timerUrgent ? '#DC2626' : '#374151',
-                borderRadius: '999px', padding: isMobile ? '4px 9px' : '5px 12px', fontSize: isMobile ? '0.78rem' : '0.875rem', fontWeight: 700,
+                borderRadius: '999px', padding: isMobile ? '5px 10px' : '6px 13px', fontSize: isMobile ? '0.82rem' : '0.92rem', fontWeight: 700,
               }}>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                   <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
                 </svg>
                 {fmtTimer(timeLeft)}
               </div>
-              <button
-                onClick={requestClose}
-                aria-label="Close"
-                style={{ width: '28px', height: '28px', borderRadius: '50%', border: 'none', background: 'none', color: '#9CA3AF', cursor: 'pointer', fontSize: '1.1rem', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
-              >
-                ✕
-              </button>
+              <CloseButton onClick={requestClose} />
             </div>
           </div>
           <div style={{ height: '3px', backgroundColor: '#F3F4F6', borderRadius: '99px', marginTop: '1.25rem', marginBottom: '0' }}>
@@ -440,25 +535,18 @@ export default function BookingModal({ user, slots, courts, onClose }: Props) {
               )}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.875rem' }}>
                 <InputField label="Full Name *" value={fullName} onChange={setFullName} placeholder="John Doe" />
-                <InputField label="Email Address *" value={email} onChange={setEmail} type="email" placeholder="john@example.com" hint="We'll send your booking confirmation to this email" />
                 <InputField label="Mobile Number *" value={phone} onChange={setPhone} type="tel" placeholder="09123456789" hint="Used for verification and updates" />
+                <InputField label="Email Address" value={email} onChange={setEmail} type="email" placeholder="john@example.com" hint="Optional — we'll send your booking confirmation here if given" />
               </div>
             </div>
 
             <div style={{ display: 'flex', gap: '0.75rem' }}>
-              <button
-                onClick={requestClose}
-                style={{ flex: 1, padding: '0.875rem', borderRadius: '999px', border: '1.5px solid #E5E7EB', backgroundColor: 'white', fontSize: '0.875rem', fontWeight: 600, color: '#6B7280', cursor: 'pointer', fontFamily: FONT_BODY }}
-              >
+              <PillButton onClick={requestClose} flex={1} bg="white" hoverBg="#F9FAFB" color="#6B7280" border="1.5px solid #E5E7EB">
                 Cancel
-              </button>
-              <button
-                onClick={handleNext}
-                disabled={!quote}
-                style={{ flex: 2, padding: '0.875rem', borderRadius: '999px', border: 'none', backgroundColor: quote ? G_DARK : '#E5E7EB', color: quote ? 'white' : '#9CA3AF', fontSize: '0.875rem', fontWeight: 600, cursor: quote ? 'pointer' : 'default', fontFamily: FONT_BODY }}
-              >
+              </PillButton>
+              <PillButton onClick={handleNext} disabled={!quote} flex={2} bg={G_DARK} hoverBg="#0B2A14" color="white">
                 {quoting && !quote ? 'Pricing…' : 'Next →'}
-              </button>
+              </PillButton>
             </div>
           </div>
         )}
@@ -475,17 +563,17 @@ export default function BookingModal({ user, slots, courts, onClose }: Props) {
               </div>
             )}
 
-            <div style={{ border: '1px solid #E5E7EB', borderRadius: '12px', padding: '1.5rem', textAlign: 'center', marginBottom: '1.25rem' }}>
-              <p style={{ fontSize: '0.62rem', fontWeight: 700, color: '#9CA3AF', letterSpacing: '0.16em', textTransform: 'uppercase', margin: '0 0 0.25rem' }}>PAY EXACTLY</p>
-              <p style={{ fontFamily: FONT_DISPLAY, fontSize: isMobile ? '2.15rem' : '2.75rem', fontWeight: 800, color: '#111827', margin: 0, lineHeight: 1 }}>
+            <div style={{ background: `linear-gradient(155deg, ${G_DARK} 0%, #0B2A14 100%)`, borderRadius: '14px', padding: '1.75rem 1.5rem', textAlign: 'center', marginBottom: '1.25rem' }}>
+              <p style={{ fontSize: '0.68rem', fontWeight: 700, color: 'rgba(255,255,255,0.55)', letterSpacing: '0.16em', textTransform: 'uppercase', margin: '0 0 0.3rem' }}>PAY EXACTLY</p>
+              <p style={{ fontFamily: FONT_DISPLAY, fontSize: isMobile ? '2.25rem' : '2.85rem', fontWeight: 800, color: 'white', margin: 0, lineHeight: 1 }}>
                 {quote ? fmtMoney(finalTotal) : quoting ? '…' : '—'}
               </p>
               {promoActive && discount > 0 && (
-                <p style={{ fontSize: '0.78rem', color: G, fontWeight: 600, margin: '6px 0 0' }}>
+                <p style={{ fontSize: '0.82rem', color: '#7AC231', fontWeight: 600, margin: '8px 0 0' }}>
                   {appliedCode} applied — you saved {fmtMoney(discount)}
                 </p>
               )}
-              <p style={{ fontSize: '0.75rem', color: '#9CA3AF', margin: '6px 0 0' }}>Confirmed by PickleBella Park, not your browser</p>
+              <p style={{ fontSize: '0.78rem', color: 'rgba(255,255,255,0.45)', margin: '8px 0 0' }}>Confirmed by PickleBella Park, not your browser</p>
             </div>
 
             {/* Promo code */}
@@ -499,7 +587,7 @@ export default function BookingModal({ user, slots, courts, onClose }: Props) {
                       {' '}· {fmtMoney(discount)} off
                     </span>
                   </span>
-                  <button onClick={clearPromo} style={{ background: 'none', border: 'none', color: '#DC2626', fontSize: '0.78rem', fontWeight: 600, cursor: 'pointer', fontFamily: FONT_BODY }}>Remove</button>
+                  <button onClick={clearPromo} style={{ background: 'none', border: 'none', color: '#DC2626', fontSize: '0.82rem', fontWeight: 600, cursor: 'pointer', fontFamily: FONT_BODY }}>Remove</button>
                 </div>
               ) : (
                 <>
@@ -509,23 +597,19 @@ export default function BookingModal({ user, slots, courts, onClose }: Props) {
                       onChange={e => setPromoInput(e.target.value.toUpperCase())}
                       onKeyDown={e => { if (e.key === 'Enter') void applyPromo() }}
                       placeholder="Enter code"
-                      style={{ flex: 1, padding: '0.7rem 1rem', borderRadius: '10px', border: '1.5px solid #E5E7EB', fontSize: '0.85rem', outline: 'none', boxSizing: 'border-box', fontFamily: FONT_BODY, textTransform: 'uppercase' }}
+                      style={{ flex: 1, padding: '0.75rem 1rem', borderRadius: '10px', border: '1.5px solid #E5E7EB', fontSize: '0.9rem', outline: 'none', boxSizing: 'border-box', fontFamily: FONT_BODY, textTransform: 'uppercase' }}
                     />
-                    <button
-                      onClick={() => void applyPromo()}
-                      disabled={quoting}
-                      style={{ padding: '0.7rem 1.25rem', borderRadius: '10px', border: 'none', backgroundColor: quoting ? '#E5E7EB' : G_DARK, color: quoting ? '#9CA3AF' : 'white', fontSize: '0.82rem', fontWeight: 700, cursor: quoting ? 'default' : 'pointer', fontFamily: FONT_BODY }}
-                    >
+                    <PillButton onClick={() => void applyPromo()} disabled={quoting} bg={G_DARK} hoverBg="#0B2A14" color="white">
                       {quoting ? '…' : 'Apply'}
-                    </button>
+                    </PillButton>
                   </div>
-                  {promoError && <p style={{ fontSize: '0.75rem', color: '#DC2626', margin: '6px 0 0' }}>{promoError}</p>}
+                  {promoError && <p style={{ fontSize: '0.8rem', color: '#DC2626', margin: '6px 0 0' }}>{promoError}</p>}
                 </>
               )}
             </div>
 
             <div style={{ marginBottom: '1.25rem' }}>
-              <h3 style={{ fontSize: '0.9rem', fontWeight: 700, color: '#111827', margin: '0 0 0.875rem' }}>Select Payment Method</h3>
+              <h3 style={{ fontSize: '0.95rem', fontWeight: 700, color: '#111827', margin: '0 0 0.875rem' }}>Select Payment Method</h3>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                 {PAYMENT_METHODS.map(pm => {
                   const selected = payMethod === pm.id && !pm.disabled
@@ -534,17 +618,11 @@ export default function BookingModal({ user, slots, courts, onClose }: Props) {
                   // out of the signed quote rather than working out a fee here.
                   const rowTotal = totalFor(pm.id)
                   return (
-                    <button
+                    <PaymentMethodRow
                       key={pm.id}
-                      disabled={pm.disabled}
+                      selected={selected}
+                      disabled={Boolean(pm.disabled)}
                       onClick={() => !pm.disabled && setPayMethod(pm.id)}
-                      style={{
-                        display: 'flex', alignItems: 'center', gap: isMobile ? '0.6rem' : '0.875rem',
-                        padding: isMobile ? '0.8rem 0.75rem' : '0.875rem 1rem', borderRadius: '12px', textAlign: 'left',
-                        border: `1.5px solid ${selected ? G : '#E5E7EB'}`,
-                        backgroundColor: selected ? '#F0FDF4' : pm.disabled ? '#FAFAFA' : 'white',
-                        cursor: pm.disabled ? 'not-allowed' : 'pointer', transition: 'all 0.15s',
-                      }}
                     >
                       <div style={{ width: '18px', height: '18px', borderRadius: '50%', border: `2px solid ${selected ? G : '#D1D5DB'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, transition: 'border-color 0.15s' }}>
                         {selected && <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: G }} />}
@@ -556,19 +634,19 @@ export default function BookingModal({ user, slots, courts, onClose }: Props) {
                           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" strokeWidth="2"><rect x="1" y="4" width="22" height="16" rx="2" /><line x1="1" y1="10" x2="23" y2="10" /></svg>
                         </div>
                       )}
-                      <span style={{ flex: 1, minWidth: 0, fontSize: isMobile ? '0.82rem' : '0.875rem', fontWeight: 600, color: pm.disabled ? '#9CA3AF' : '#111827' }}>
+                      <span style={{ flex: 1, minWidth: 0, fontSize: isMobile ? '0.88rem' : '0.92rem', fontWeight: 600, color: pm.disabled ? '#9CA3AF' : '#111827' }}>
                         {pm.label}
                       </span>
-                      <span style={{ fontSize: isMobile ? '0.8rem' : '0.85rem', fontWeight: 700, color: pm.disabled ? '#D1D5DB' : '#111827', flexShrink: 0, whiteSpace: 'nowrap' }}>
+                      <span style={{ fontSize: isMobile ? '0.85rem' : '0.9rem', fontWeight: 700, color: pm.disabled ? '#D1D5DB' : '#111827', flexShrink: 0, whiteSpace: 'nowrap' }}>
                         {pm.disabled ? (
-                          <span style={{ fontSize: '0.65rem', letterSpacing: '0.08em', color: '#9CA3AF' }}>COMING SOON</span>
+                          <span style={{ fontSize: '0.68rem', letterSpacing: '0.08em', color: '#9CA3AF' }}>COMING SOON</span>
                         ) : rowTotal !== undefined ? (
                           fmtMoney(rowTotal)
                         ) : (
-                          <span style={{ fontSize: '0.7rem', color: '#9CA3AF', fontWeight: 500 }}>…</span>
+                          <span style={{ fontSize: '0.72rem', color: '#9CA3AF', fontWeight: 500 }}>…</span>
                         )}
                       </span>
-                    </button>
+                    </PaymentMethodRow>
                   )
                 })}
               </div>
@@ -593,29 +671,19 @@ export default function BookingModal({ user, slots, courts, onClose }: Props) {
                   <div style={{ width: '18px', height: '18px', borderRadius: '5px', border: `2px solid ${item.v ? G : '#D1D5DB'}`, backgroundColor: item.v ? G : 'transparent', flexShrink: 0, marginTop: '1px', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s' }}>
                     {item.v && <span style={{ color: 'white', fontSize: '0.65rem', fontWeight: 700 }}>✓</span>}
                   </div>
-                  <p style={{ fontSize: '0.8rem', color: '#374151', margin: 0, lineHeight: 1.6 }}>{item.label}</p>
+                  <p style={{ fontSize: '0.85rem', color: '#374151', margin: 0, lineHeight: 1.6 }}>{item.label}</p>
                 </div>
               ))}
             </div>
 
             <div style={{ display: 'flex', gap: '0.75rem' }}>
-              <button
-                onClick={() => setStep(1)}
-                style={{ flex: 1, padding: '0.875rem', borderRadius: '999px', border: '1.5px solid #E5E7EB', backgroundColor: 'white', fontSize: '0.875rem', fontWeight: 600, color: '#6B7280', cursor: 'pointer', fontFamily: FONT_BODY }}
-              >
+              <PillButton onClick={() => setStep(1)} flex={1} bg="white" hoverBg="#F9FAFB" color="#6B7280" border="1.5px solid #E5E7EB">
                 ← Back
-              </button>
-              <button
+              </PillButton>
+              <PillButton
                 onClick={() => void handlePay()}
                 disabled={!check1 || !check2 || paying || !quote || quoting}
-                style={{
-                  flex: 2, padding: '0.875rem', borderRadius: '999px', border: 'none',
-                  backgroundColor: check1 && check2 && !paying && quote && !quoting ? G_DARK : '#E5E7EB',
-                  color: check1 && check2 && !paying && quote && !quoting ? 'white' : '#9CA3AF',
-                  fontSize: '0.875rem', fontWeight: 600,
-                  cursor: check1 && check2 && !paying && quote && !quoting ? 'pointer' : 'default',
-                  fontFamily: FONT_BODY, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
-                }}
+                flex={2} bg={G_DARK} hoverBg="#0B2A14" color="white"
               >
                 {paying ? (
                   <>Opening {selPay?.label ?? 'payment'}…</>
@@ -627,7 +695,7 @@ export default function BookingModal({ user, slots, courts, onClose }: Props) {
                     {payMethod === 'instapay' ? 'Show QR Ph code' : `Pay with ${selPay?.label ?? 'wallet'}`}
                   </>
                 )}
-              </button>
+              </PillButton>
             </div>
           </div>
         )}
@@ -636,27 +704,22 @@ export default function BookingModal({ user, slots, courts, onClose }: Props) {
       {/* CANCEL CONFIRMATION */}
       {showCancelConfirm && (
         <div
+          className="pb-modal-backdrop"
           style={{ position: 'fixed', inset: 0, zIndex: 110, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem', backgroundColor: 'rgba(0,0,0,0.5)' }}
           onClick={e => e.target === e.currentTarget && setShowCancelConfirm(false)}
         >
-          <div style={{ backgroundColor: 'white', borderRadius: '18px', maxWidth: '380px', width: '100%', padding: '1.75rem', textAlign: 'center', boxShadow: '0 32px 80px rgba(0,0,0,0.3)' }}>
-            <h3 style={{ fontFamily: FONT_DISPLAY, color: G_DARK, fontSize: '1.15rem', fontWeight: 700, margin: '0 0 0.5rem' }}>Cancel this booking?</h3>
-            <p style={{ color: '#6B7280', fontSize: '0.85rem', margin: '0 0 1.5rem', lineHeight: 1.6 }}>
+          <div className="pb-modal-panel" style={{ backgroundColor: 'white', borderRadius: '18px', maxWidth: '380px', width: '100%', padding: '1.75rem', textAlign: 'center', boxShadow: '0 32px 80px rgba(0,0,0,0.3)' }}>
+            <h3 style={{ fontFamily: FONT_DISPLAY, color: G_DARK, fontSize: '1.2rem', fontWeight: 700, margin: '0 0 0.5rem' }}>Cancel this booking?</h3>
+            <p style={{ color: '#6B7280', fontSize: '0.9rem', margin: '0 0 1.5rem', lineHeight: 1.6 }}>
               Your selected slots and details will be discarded. This can't be undone.
             </p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem' }}>
-              <button
-                onClick={() => setShowCancelConfirm(false)}
-                style={{ padding: '0.8rem', borderRadius: '999px', border: 'none', backgroundColor: G_DARK, color: 'white', fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer', fontFamily: FONT_BODY }}
-              >
+              <PillButton onClick={() => setShowCancelConfirm(false)} bg={G_DARK} hoverBg="#0B2A14" color="white">
                 Return to Payment
-              </button>
-              <button
-                onClick={onClose}
-                style={{ padding: '0.8rem', borderRadius: '999px', border: '1.5px solid #E5E7EB', backgroundColor: 'white', color: '#DC2626', fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer', fontFamily: FONT_BODY }}
-              >
+              </PillButton>
+              <PillButton onClick={onClose} bg="white" hoverBg="#FEF2F2" color="#DC2626" border="1.5px solid #E5E7EB">
                 Yes, Cancel Booking
-              </button>
+              </PillButton>
             </div>
           </div>
         </div>
@@ -665,10 +728,11 @@ export default function BookingModal({ user, slots, courts, onClose }: Props) {
       {/* WAIVER & TERMS */}
       {showWaiver && (
         <div
+          className="pb-modal-backdrop"
           style={{ position: 'fixed', inset: 0, zIndex: 110, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem', backgroundColor: 'rgba(0,0,0,0.5)' }}
           onClick={e => e.target === e.currentTarget && setShowWaiver(false)}
         >
-          <div style={{ backgroundColor: 'white', borderRadius: '18px', maxWidth: '520px', width: '100%', maxHeight: '85vh', display: 'flex', flexDirection: 'column', boxShadow: '0 32px 80px rgba(0,0,0,0.3)' }}>
+          <div className="pb-modal-panel" style={{ backgroundColor: 'white', borderRadius: '18px', maxWidth: '520px', width: '100%', maxHeight: '85vh', display: 'flex', flexDirection: 'column', boxShadow: '0 32px 80px rgba(0,0,0,0.3)' }}>
             <div style={{ padding: '1.5rem 1.75rem 1rem', borderBottom: '1px solid #F3F4F6' }}>
               <h3 style={{ fontFamily: FONT_DISPLAY, color: G_DARK, fontSize: '1.25rem', fontWeight: 700, margin: '0 0 0.375rem' }}>
                 PickleBella Booking Waiver & Terms
@@ -694,18 +758,12 @@ export default function BookingModal({ user, slots, courts, onClose }: Props) {
               </p>
             </div>
             <div style={{ padding: '1.125rem 1.75rem', borderTop: '1px solid #F3F4F6', display: 'flex', gap: '0.75rem' }}>
-              <button
-                onClick={() => { setCheck2(false); setShowWaiver(false) }}
-                style={{ flex: 1, padding: '0.8rem', borderRadius: '999px', border: '1.5px solid #E5E7EB', backgroundColor: 'white', fontSize: '0.85rem', fontWeight: 600, color: '#6B7280', cursor: 'pointer', fontFamily: FONT_BODY }}
-              >
+              <PillButton onClick={() => { setCheck2(false); setShowWaiver(false) }} flex={1} bg="white" hoverBg="#F9FAFB" color="#6B7280" border="1.5px solid #E5E7EB">
                 Cancel
-              </button>
-              <button
-                onClick={() => { setCheck2(true); setShowWaiver(false) }}
-                style={{ flex: 2, padding: '0.8rem', borderRadius: '999px', border: 'none', backgroundColor: G_DARK, color: 'white', fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer', fontFamily: FONT_BODY }}
-              >
+              </PillButton>
+              <PillButton onClick={() => { setCheck2(true); setShowWaiver(false) }} flex={2} bg={G_DARK} hoverBg="#0B2A14" color="white">
                 I Agree
-              </button>
+              </PillButton>
             </div>
           </div>
         </div>

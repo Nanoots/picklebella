@@ -13,8 +13,16 @@
 
 import { supabase } from './supabaseClient'
 import { API_URL } from './env'
-import { ApiError } from './api'
+import { ApiError, resolveLoginIdentifier } from './api'
+import { looksLikeEmail, normalizePhone } from './phone'
 import type { CustomerUser } from './types'
+
+/** A syntactically valid but never-registrable address, so a phone number
+ * that doesn't resolve to any account still reaches Supabase's own generic
+ * "invalid credentials" error rather than this module inventing a distinct
+ * "no such account" message that would let a caller test phone numbers for
+ * existence. */
+const UNRESOLVED_LOGIN_EMAIL = 'no-such-account@picklebella.invalid'
 
 export type Session = {
   user: CustomerUser
@@ -41,7 +49,9 @@ export async function signUp(input: {
   const { data, error } = await supabase.auth.signUp({
     email: input.email.trim(),
     password: input.password,
-    options: { data: { name: input.name.trim(), phone: input.phone.trim() } },
+    // Stored normalized so a later sign-in by phone number matches regardless
+    // of how this one happened to be formatted — see resolveLoginIdentifier.
+    options: { data: { name: input.name.trim(), phone: normalizePhone(input.phone) } },
   })
   if (error) throw new ApiError(error.message, error.status ?? 400, 'signup_failed')
 
@@ -54,9 +64,27 @@ export async function signUp(input: {
   }
 }
 
-export async function signIn(email: string, password: string): Promise<CustomerUser> {
+/**
+ * Signs in with either an email address or a mobile number.
+ *
+ * A phone number isn't something Supabase's password grant accepts directly
+ * here (this project's accounts are keyed by email — see DEPLOYMENT.md), so
+ * it is first resolved server-side to the matching account's email. A phone
+ * that doesn't resolve — wrong number, or one shared by more than one
+ * account — still reaches signInWithPassword with SOME email, so it fails
+ * exactly the way a wrong password does rather than with a different,
+ * information-revealing error.
+ */
+export async function signIn(identifier: string, password: string): Promise<CustomerUser> {
+  const trimmed = identifier.trim()
+  let email = trimmed
+  if (!looksLikeEmail(trimmed)) {
+    const resolved = await resolveLoginIdentifier(trimmed)
+    email = resolved.email ?? UNRESOLVED_LOGIN_EMAIL
+  }
+
   const { data, error } = await supabase.auth.signInWithPassword({
-    email: email.trim(),
+    email,
     password,
   })
   if (error) {
@@ -66,6 +94,21 @@ export async function signIn(email: string, password: string): Promise<CustomerU
     throw new ApiError(error.message, error.status ?? 400, 'signin_failed')
   }
   if (!data.user) throw new ApiError('Sign in failed.', 400, 'signin_failed')
+  return toCustomer(data.user)
+}
+
+/**
+ * Anonymous sign-in for guest checkout: a real, if disposable, Supabase
+ * session with no email, password, or personal information required. It
+ * uses the `authenticated` role like any other account, so the booking and
+ * payment endpoints work unchanged — see server/api/bookings/index.ts for
+ * the one place that treats a guest differently (there is no account email
+ * to fall back to).
+ */
+export async function continueAsGuest(): Promise<CustomerUser> {
+  const { data, error } = await supabase.auth.signInAnonymously()
+  if (error) throw new ApiError(error.message, error.status ?? 400, 'guest_signin_failed')
+  if (!data.user) throw new ApiError('Could not continue as guest.', 400, 'guest_signin_failed')
   return toCustomer(data.user)
 }
 

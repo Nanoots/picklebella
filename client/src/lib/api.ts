@@ -184,10 +184,24 @@ export function startPayment(input: {
   paymentMethod: string
   name: string
   phone: string
+  /** Only used for a guest (anonymous) session, which has no account email of its own. */
+  email?: string
   players: number
   notes?: string
 }): Promise<PaymentStart> {
   return request<PaymentStart>('/api/bookings', { method: 'POST', body: input, auth: true })
+}
+
+/**
+ * Turns a sign-in field's typed value into the email Supabase needs.
+ *
+ * An email is returned as-is. A phone number is looked up server-side
+ * against the matching account — see server/api/resolve-login-identifier.ts
+ * for why a miss and an ambiguous match both come back as `email: null`
+ * rather than a distinct error.
+ */
+export function resolveLoginIdentifier(identifier: string): Promise<{ email: string | null }> {
+  return request('/api/resolve-login-identifier', { method: 'POST', body: { identifier } })
 }
 
 /**
