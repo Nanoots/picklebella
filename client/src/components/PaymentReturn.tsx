@@ -81,18 +81,23 @@ export default function PaymentReturn({ intentId, onDone }: Props) {
   const bookings = result?.bookings ?? []
   const total = bookings.reduce((sum, b) => sum + Number(b.amount), 0)
 
+  // A modal over the booking page rather than a standalone screen: the site's
+  // own nav and grid stay visible behind it, so paying doesn't feel like it
+  // dropped the customer somewhere outside the app.
   const shell = (children: React.ReactNode) => (
     <div
+      className="pb-modal-backdrop"
       style={{
-        fontFamily: FONT_BODY, minHeight: '100vh', backgroundColor: '#FAFAF8',
+        position: 'fixed', inset: 0, zIndex: 120, backgroundColor: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(8px)',
         display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1.25rem',
       }}
     >
       <div
+        className="pb-modal-panel"
         style={{
           backgroundColor: 'white', borderRadius: '20px', maxWidth: '480px', width: '100%',
           padding: isMobile ? '2rem 1.25rem' : '2.75rem 2rem', textAlign: 'center',
-          boxShadow: '0 12px 48px rgba(0,0,0,0.10)',
+          boxShadow: '0 32px 80px rgba(0,0,0,0.3)',
         }}
       >
         {children}
@@ -159,7 +164,7 @@ export default function PaymentReturn({ intentId, onDone }: Props) {
           onClick={onDone}
           style={{ backgroundColor: G, color: 'white', border: 'none', borderRadius: '999px', padding: '0.9rem 2.75rem', fontSize: '0.9rem', fontWeight: 600, cursor: 'pointer', fontFamily: FONT_BODY, width: '100%' }}
         >
-          Done
+          View My Bookings
         </button>
       </>,
     )
@@ -200,7 +205,7 @@ export default function PaymentReturn({ intentId, onDone }: Props) {
         onClick={onDone}
         style={{ backgroundColor: PINK, color: 'white', border: 'none', borderRadius: '999px', padding: '0.9rem 2.75rem', fontSize: '0.9rem', fontWeight: 600, cursor: 'pointer', fontFamily: FONT_BODY, width: '100%' }}
       >
-        Back to PickleBella
+        Back to Booking
       </button>
     </>,
   )

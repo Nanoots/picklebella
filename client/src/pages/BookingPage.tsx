@@ -14,8 +14,8 @@ import * as api from '../lib/api'
 import type { AvailabilityResponse } from '../lib/api'
 import type { Booking, Court, HoursConfig } from '../lib/types'
 import { OPEN_HOUR, CLOSE_HOUR } from '../lib/types'
-import { fmtHour, fmtMoney, todayStr, toLocalDateStr } from '../lib/format'
-import { useAsync } from '../lib/useAsync'
+import { fmtDateLong, fmtHour, fmtMoney, todayStr, toLocalDateStr } from '../lib/format'
+import { useAsync, errorMessage } from '../lib/useAsync'
 import { useIsMobile, useIsNarrow } from '../lib/useMediaQuery'
 import { ErrorBlock, LoadingBlock } from '../components/States'
 import { BLUE, AVAILABLE_GREEN, FONT_BODY, FONT_DISPLAY, G_DARK, PINK } from '../lib/theme'
@@ -27,7 +27,7 @@ export type SelectedSlot = {
   price: number
 }
 
-const TABS = ['Book', 'Coaches', 'Open Plays', 'Feed'] as const
+const TABS = ['Book', 'Bookings', 'Coaches', 'Open Plays', 'Feed'] as const
 type Tab = (typeof TABS)[number]
 
 const COURT_PHOTOS: Record<string, string> = {
@@ -85,12 +85,15 @@ interface Props {
    * what asks for one, right before payment. */
   user: User | null
   initialCourtId?: string | null
+  /** Lands on the Bookings tab instead of Book — used when arriving here
+   * fresh off a payment confirmation. */
+  initialTab?: Tab
   onBack: () => void
   onSignIn: () => void
   onSignOut: () => void
 }
 
-export default function BookingPage({ user, initialCourtId, onBack, onSignIn, onSignOut }: Props) {
+export default function BookingPage({ user, initialCourtId, initialTab, onBack, onSignIn, onSignOut }: Props) {
   const [curDate, setCurDate] = useState(new Date())
   const [selected, setSelected] = useState<SelectedSlot[]>([])
   const [showModal, setShowModal] = useState(false)
@@ -99,7 +102,9 @@ export default function BookingPage({ user, initialCourtId, onBack, onSignIn, on
   // booking modal, and this remembers to open the booking modal once one
   // exists rather than making them press "Book Now" a second time.
   const [pendingBookingOpen, setPendingBookingOpen] = useState(false)
-  const [activeTab, setActiveTab] = useState<Tab>('Book')
+  const [activeTab, setActiveTab] = useState<Tab>(initialTab ?? 'Book')
+  const [cancellingId, setCancellingId] = useState<string | null>(null)
+  const [cancelError, setCancelError] = useState('')
   const gridWrapRef = useRef<HTMLDivElement>(null)
   const isMobile = useIsMobile()
   const isNarrow = useIsNarrow()
@@ -210,6 +215,27 @@ export default function BookingPage({ user, initialCourtId, onBack, onSignIn, on
   const courtCount = selectedCourtIds.length
   const heroPhoto = photoForCourts(selectedCourtIds)
 
+  function courtName(id: string) {
+    return COURTS.find((c) => c.id === id)?.name ?? id
+  }
+
+  async function handleCancel(id: string) {
+    if (cancellingId) return
+    setCancelError('')
+    setCancellingId(id)
+    try {
+      await api.cancelMyBooking(id)
+      myBookings.reload()
+      // A cancelled booking frees its slot immediately, so the grid the
+      // customer might switch back to should reflect that too.
+      availability.reload()
+    } catch (err) {
+      setCancelError(errorMessage(err))
+    } finally {
+      setCancellingId(null)
+    }
+  }
+
   const amenities = ['Free Parking', 'Restrooms', 'Equipment Rental', 'Seating Area', 'Night Lighting', 'Café']
 
   return (
@@ -289,7 +315,74 @@ export default function BookingPage({ user, initialCourtId, onBack, onSignIn, on
             ))}
           </div>
 
-          {activeTab !== 'Book' ? (
+          {activeTab === 'Bookings' ? (
+            <div style={{ padding: isMobile ? '1.1rem' : '1.5rem' }}>
+              {!user ? (
+                <div style={{ padding: '3rem 1.5rem', textAlign: 'center' }}>
+                  <p style={{ fontSize: '2rem', margin: '0 0 0.75rem' }}>🔒</p>
+                  <h3 style={{ fontFamily: FONT_DISPLAY, color: '#111827', fontSize: '1.15rem', fontWeight: 700, margin: '0 0 0.5rem' }}>Sign in to see your bookings</h3>
+                  <p style={{ color: '#9CA3AF', fontSize: '0.85rem', margin: '0 0 1.25rem' }}>Your reservations show up here once you're signed in.</p>
+                  <button
+                    onClick={onSignIn}
+                    style={{ backgroundColor: G_DARK, color: 'white', border: 'none', borderRadius: '999px', padding: '0.75rem 1.75rem', fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer', fontFamily: FONT_BODY }}
+                  >
+                    Sign In
+                  </button>
+                </div>
+              ) : myBookings.loading ? (
+                <LoadingBlock label="Loading your bookings…" />
+              ) : myBookings.error ? (
+                <ErrorBlock message={myBookings.error} onRetry={myBookings.reload} />
+              ) : (myBookings.data ?? []).length === 0 ? (
+                <div style={{ padding: '3rem 1.5rem', textAlign: 'center' }}>
+                  <p style={{ fontSize: '2rem', margin: '0 0 0.75rem' }}>📭</p>
+                  <h3 style={{ fontFamily: FONT_DISPLAY, color: '#111827', fontSize: '1.15rem', fontWeight: 700, margin: '0 0 0.5rem' }}>No bookings yet</h3>
+                  <p style={{ color: '#9CA3AF', fontSize: '0.85rem', margin: 0 }}>Reserve a court from the Book tab and it'll show up here.</p>
+                </div>
+              ) : (
+                <>
+                  {cancelError && (
+                    <div style={{ backgroundColor: '#FEE2E2', color: '#DC2626', fontSize: '0.82rem', padding: '0.7rem 0.9rem', borderRadius: '8px', marginBottom: '1rem', lineHeight: 1.5 }}>
+                      {cancelError}
+                    </div>
+                  )}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                    {(myBookings.data ?? []).map((b) => {
+                      const statusStyle = b.status === 'paid'
+                        ? { bg: '#DCFCE7', fg: '#15803D', label: 'Paid' }
+                        : b.status === 'pending'
+                          ? { bg: '#FEF3C7', fg: '#92400E', label: 'Pending' }
+                          : { bg: '#F3F4F6', fg: '#6B7280', label: 'Cancelled' }
+                      const canCancel = b.status === 'paid'
+                      return (
+                        <div key={b.id} style={{ border: '1px solid #E5E7EB', borderRadius: '12px', padding: isMobile ? '0.9rem' : '1.1rem', display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+                          <div style={{ flex: 1, minWidth: '200px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '0.3rem' }}>
+                              <span style={{ fontSize: '0.92rem', fontWeight: 700, color: '#111827' }}>{courtName(b.courtId)}</span>
+                              <span style={{ backgroundColor: statusStyle.bg, color: statusStyle.fg, fontSize: '0.65rem', fontWeight: 700, padding: '2px 8px', borderRadius: '999px', textTransform: 'uppercase' }}>{statusStyle.label}</span>
+                            </div>
+                            <p style={{ color: '#6B7280', fontSize: '0.82rem', margin: 0 }}>
+                              {fmtDateLong(b.date)} · {fmtHour(b.startHour)} – {fmtHour(b.startHour + b.duration)}
+                            </p>
+                          </div>
+                          <span style={{ fontFamily: FONT_DISPLAY, fontSize: '1rem', fontWeight: 700, color: '#111827', flexShrink: 0 }}>{fmtMoney(b.amount)}</span>
+                          {canCancel && (
+                            <button
+                              onClick={() => void handleCancel(b.id)}
+                              disabled={cancellingId === b.id}
+                              style={{ background: 'none', border: '1.5px solid #FCA5A5', color: '#DC2626', borderRadius: '999px', padding: '0.5rem 1rem', fontSize: '0.78rem', fontWeight: 600, cursor: cancellingId === b.id ? 'default' : 'pointer', fontFamily: FONT_BODY, flexShrink: 0, opacity: cancellingId === b.id ? 0.6 : 1 }}
+                            >
+                              {cancellingId === b.id ? 'Cancelling…' : 'Cancel'}
+                            </button>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                </>
+              )}
+            </div>
+          ) : activeTab !== 'Book' ? (
             <div style={{ padding: '4rem 1.5rem', textAlign: 'center' }}>
               <p style={{ fontSize: '2rem', margin: '0 0 0.75rem' }}>🚧</p>
               <h3 style={{ fontFamily: FONT_DISPLAY, color: '#111827', fontSize: '1.15rem', fontWeight: 700, margin: '0 0 0.5rem' }}>{activeTab} is coming soon</h3>

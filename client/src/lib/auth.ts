@@ -11,7 +11,7 @@
    true in their console sees an empty shell and 403s.
    ========================================================= */
 
-import { supabase } from './supabaseClient'
+import { supabase, setRememberMe } from './supabaseClient'
 import { API_URL } from './env'
 import { ApiError, resolveLoginIdentifier } from './api'
 import { looksLikeEmail, normalizePhone } from './phone'
@@ -74,8 +74,12 @@ export async function signUp(input: {
  * account — still reaches signInWithPassword with SOME email, so it fails
  * exactly the way a wrong password does rather than with a different,
  * information-revealing error.
+ *
+ * `remember` chooses where supabase-js's own session write lands — see
+ * setRememberMe in supabaseClient.ts. Must be set before the call below,
+ * since that's what actually persists the session.
  */
-export async function signIn(identifier: string, password: string): Promise<CustomerUser> {
+export async function signIn(identifier: string, password: string, remember = true): Promise<CustomerUser> {
   const trimmed = identifier.trim()
   let email = trimmed
   if (!looksLikeEmail(trimmed)) {
@@ -83,6 +87,7 @@ export async function signIn(identifier: string, password: string): Promise<Cust
     email = resolved.email ?? UNRESOLVED_LOGIN_EMAIL
   }
 
+  setRememberMe(remember)
   const { data, error } = await supabase.auth.signInWithPassword({
     email,
     password,
@@ -117,6 +122,25 @@ export async function requestPasswordReset(email: string): Promise<void> {
     redirectTo: window.location.origin + '/reset-password',
   })
   if (error) throw new ApiError(error.message, error.status ?? 400, 'reset_failed')
+}
+
+/** Sets a new password for the session created by clicking a reset-password
+ * email link. Supabase treats that link's session as fully signed in — this
+ * is the same call an already-signed-in user would use to change theirs. */
+export async function updatePassword(password: string): Promise<void> {
+  const { error } = await supabase.auth.updateUser({ password })
+  if (error) throw new ApiError(error.message, error.status ?? 400, 'update_password_failed')
+}
+
+/** Fires once when a reset-password email link has just been opened and
+ * Supabase has turned it into a signed-in session — the cue ResetPasswordPage
+ * uses to show the "set a new password" form instead of treating this as an
+ * ordinary sign-in. */
+export function onPasswordRecovery(cb: () => void): () => void {
+  const { data } = supabase.auth.onAuthStateChange((event) => {
+    if (event === 'PASSWORD_RECOVERY') cb()
+  })
+  return () => data.subscription.unsubscribe()
 }
 
 export async function signOut(): Promise<void> {

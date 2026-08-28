@@ -3,6 +3,7 @@ import LandingPage from './pages/LandingPage'
 import AuthModal from './components/AuthModal'
 import AdminLoginModal from './components/AdminLoginModal'
 import PaymentReturn from './components/PaymentReturn'
+import ResetPasswordPage from './pages/ResetPasswordPage'
 import { LoadingBlock } from './components/States'
 
 /* The landing page is what a first-time visitor loads, and it needs neither of
@@ -15,10 +16,13 @@ import { getSession, onAuthChange, signOut } from './lib/auth'
 import type { CustomerUser } from './lib/types'
 
 export type User = CustomerUser
-export type Page = 'home' | 'booking' | 'admin'
+export type Page = 'home' | 'booking' | 'admin' | 'reset-password'
 
 function pageFromPath(): Page {
-  return window.location.pathname.replace(/\/+$/, '') === '/admin' ? 'admin' : 'home'
+  const path = window.location.pathname.replace(/\/+$/, '')
+  if (path === '/admin') return 'admin'
+  if (path === '/reset-password') return 'reset-password'
+  return 'home'
 }
 
 /**
@@ -127,19 +131,23 @@ export default function App() {
 
   if (!authReady) return null
 
+  // Reached only via the link in a password-reset email, so it bypasses
+  // every other page state — there is nothing else a fresh click on that
+  // link could sensibly mean.
+  if (page === 'reset-password') {
+    return <ResetPasswordPage onDone={() => navigate('home')} />
+  }
+
   /* Back from GCash / Maya / QR Ph.
 
-     Gated on being signed in: the status endpoint only answers for the account
-     that owns the booking, so a signed-out visitor is shown the landing page
-     and the sign-in prompt rather than an error they cannot act on. */
-  if (paymentIntentId && user) {
-    return (
-      <PaymentReturn
-        intentId={paymentIntentId}
-        onDone={() => navigate('home')}
-      />
-    )
-  }
+     A fresh page load lands here with `page` still computed from the bare
+     pathname (pageFromPath ignores the query string), so this is checked
+     independently of `page` rather than as another branch of it — otherwise
+     the very first render after a payment redirect would show the landing
+     page underneath instead of the booking page. Gated on being signed in:
+     the status endpoint only answers for the account that owns the booking,
+     and a signed-out visitor has nothing here to poll for anyway. */
+  const showPaymentReturn = Boolean(paymentIntentId && user)
 
   return (
     <>
@@ -147,11 +155,14 @@ export default function App() {
         <Suspense fallback={<LoadingBlock label="Loading admin…" pad="6rem" />}>
           <AdminPage onExit={() => navigate('home')} onLogout={() => { void handleAdminLogout() }} />
         </Suspense>
-      ) : page === 'booking' ? (
+      ) : page === 'booking' || showPaymentReturn ? (
         <Suspense fallback={<LoadingBlock label="Loading courts…" pad="6rem" />}>
           <BookingPage
             user={user}
             initialCourtId={pendingCourtId}
+            // Landing here fresh off a payment confirmation should show the
+            // booking it just made, not the empty court grid.
+            initialTab={showPaymentReturn ? 'Bookings' : undefined}
             onBack={() => { setPendingCourtId(null); navigate('home') }}
             onSignIn={() => setShowAuth(true)}
             onSignOut={() => { void handleSignOut() }}
@@ -164,6 +175,15 @@ export default function App() {
           onSignIn={() => setShowAuth(true)}
           onSignOut={() => { void handleSignOut() }}
           onAdminSignIn={() => setShowAdminAuth(true)}
+        />
+      )}
+
+      {/* Rendered on top of the booking page above, not in place of it — the
+          site's own nav and grid stay visible behind the confirmation. */}
+      {showPaymentReturn && paymentIntentId && (
+        <PaymentReturn
+          intentId={paymentIntentId}
+          onDone={() => navigate('booking')}
         />
       )}
 

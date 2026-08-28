@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import logoImg from '@/imports/opt/logo.webp'
 import type { User } from '../App'
-import { continueAsGuest, signIn, signUp } from '../lib/auth'
+import { continueAsGuest, requestPasswordReset, signIn, signUp } from '../lib/auth'
 import { G_DARK, G, PINK, FONT_BODY, FONT_DISPLAY } from '../lib/theme'
 
 interface Props {
@@ -76,19 +76,21 @@ function ActionButton({
 }
 
 export default function AuthModal({ onClose, onSuccess }: Props) {
-  const [mode, setMode] = useState<'signin' | 'signup'>('signin')
+  const [mode, setMode] = useState<'signin' | 'signup' | 'forgot'>('signin')
   const [name, setName] = useState('')
   const [identifier, setIdentifier] = useState('') // sign-in: email or mobile number
   const [email, setEmail] = useState('') // sign-up: optional
   const [phone, setPhone] = useState('')
   const [password, setPassword] = useState('')
+  const [rememberMe, setRememberMe] = useState(true)
+  const [forgotEmail, setForgotEmail] = useState('')
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
   const [loading, setLoading] = useState(false)
   const [guestLoading, setGuestLoading] = useState(false)
   const busy = loading || guestLoading
 
-  function switchMode(m: 'signin' | 'signup') {
+  function switchMode(m: 'signin' | 'signup' | 'forgot') {
     setMode(m)
     setError('')
     setNotice('')
@@ -99,6 +101,23 @@ export default function AuthModal({ onClose, onSuccess }: Props) {
     if (busy) return
     setError('')
     setNotice('')
+
+    if (mode === 'forgot') {
+      if (!forgotEmail.trim()) { setError('Please enter your email address.'); return }
+      setLoading(true)
+      try {
+        await requestPasswordReset(forgotEmail)
+        // Supabase does not reveal whether the address has an account —
+        // the same notice covers both, so this can't be used to check who
+        // has signed up here.
+        setNotice("If that email has an account, we've sent a link to reset the password.")
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Something went wrong. Please try again.')
+      } finally {
+        setLoading(false)
+      }
+      return
+    }
 
     if (mode === 'signup') {
       if (!name.trim()) { setError('Please enter your full name.'); return }
@@ -125,7 +144,7 @@ export default function AuthModal({ onClose, onSuccess }: Props) {
         return
       }
 
-      const user = await signIn(identifier, password)
+      const user = await signIn(identifier, password, rememberMe)
       onSuccess(user)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong. Please try again.')
@@ -164,24 +183,37 @@ export default function AuthModal({ onClose, onSuccess }: Props) {
           <p style={{ color: 'rgba(255,255,255,0.45)', fontSize: '0.78rem', letterSpacing: '0.12em', margin: '5px 0 0' }}>DINK · SMASH · ENJOY</p>
         </div>
 
-        {/* Tabs */}
-        <div style={{ display: 'flex', borderBottom: '1px solid #F3F4F6' }}>
-          {(['signin', 'signup'] as const).map(tab => (
+        {/* Tabs — replaced by a back link once in the forgot-password view,
+            since Sign In / Sign Up don't apply there. */}
+        {mode === 'forgot' ? (
+          <div style={{ padding: '1rem 1.5rem', borderBottom: '1px solid #F3F4F6' }}>
             <button
-              key={tab}
-              onClick={() => switchMode(tab)}
-              style={{
-                flex: 1, padding: '1rem', fontSize: '0.95rem', fontWeight: 600, border: 'none',
-                background: 'white', cursor: 'pointer', fontFamily: FONT_BODY,
-                color: mode === tab ? G : '#9CA3AF',
-                borderBottom: `2px solid ${mode === tab ? G : 'transparent'}`,
-                marginBottom: '-1px', transition: 'color 0.15s',
-              }}
+              type="button"
+              onClick={() => switchMode('signin')}
+              style={{ background: 'none', border: 'none', color: '#6B7280', cursor: 'pointer', fontSize: '0.85rem', fontFamily: FONT_BODY, padding: 0, display: 'flex', alignItems: 'center', gap: '5px' }}
             >
-              {tab === 'signin' ? 'Sign In' : 'Sign Up'}
+              ← Back to Sign In
             </button>
-          ))}
-        </div>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', borderBottom: '1px solid #F3F4F6' }}>
+            {(['signin', 'signup'] as const).map(tab => (
+              <button
+                key={tab}
+                onClick={() => switchMode(tab)}
+                style={{
+                  flex: 1, padding: '1rem', fontSize: '0.95rem', fontWeight: 600, border: 'none',
+                  background: 'white', cursor: 'pointer', fontFamily: FONT_BODY,
+                  color: mode === tab ? G : '#9CA3AF',
+                  borderBottom: `2px solid ${mode === tab ? G : 'transparent'}`,
+                  marginBottom: '-1px', transition: 'color 0.15s',
+                }}
+              >
+                {tab === 'signin' ? 'Sign In' : 'Sign Up'}
+              </button>
+            ))}
+          </div>
+        )}
 
         {/* Form */}
         <form onSubmit={handleSubmit} style={{ padding: '1.5rem' }}>
@@ -197,46 +229,83 @@ export default function AuthModal({ onClose, onSuccess }: Props) {
             </div>
           )}
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginBottom: '1.25rem' }}>
-            {mode === 'signup' ? (
-              <>
-                <Field label="Full Name *" value={name} onChange={setName} placeholder="Maria Santos" />
-                <Field label="Mobile Number *" value={phone} onChange={setPhone} type="tel" placeholder="09123456789" hint="You can sign in with this instead of your email" />
-                <Field label="Email Address *" value={email} onChange={setEmail} type="email" placeholder="maria@example.com" />
-              </>
-            ) : (
-              <Field label="Email or Mobile Number *" value={identifier} onChange={setIdentifier} placeholder="maria@example.com or 09123456789" />
-            )}
-            <Field label="Password *" value={password} onChange={setPassword} type="password" placeholder="••••••••" hint={mode === 'signup' ? 'Minimum 8 characters' : undefined} />
-          </div>
+          {mode === 'forgot' ? (
+            <>
+              <p style={{ fontSize: '0.88rem', color: '#6B7280', margin: '0 0 1.25rem', lineHeight: 1.6 }}>
+                Enter the email address on your account and we'll send you a link to reset your password.
+              </p>
+              <div style={{ marginBottom: '1.25rem' }}>
+                <Field label="Email Address *" value={forgotEmail} onChange={setForgotEmail} type="email" placeholder="maria@example.com" />
+              </div>
+              <ActionButton type="submit" variant="primary" disabled={busy}>
+                {loading ? 'Sending…' : 'Send Reset Link'}
+              </ActionButton>
+            </>
+          ) : (
+            <>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginBottom: mode === 'signin' ? '0.75rem' : '1.25rem' }}>
+                {mode === 'signup' ? (
+                  <>
+                    <Field label="Full Name *" value={name} onChange={setName} placeholder="Maria Santos" />
+                    <Field label="Mobile Number *" value={phone} onChange={setPhone} type="tel" placeholder="09123456789" hint="You can sign in with this instead of your email" />
+                    <Field label="Email Address *" value={email} onChange={setEmail} type="email" placeholder="maria@example.com" />
+                  </>
+                ) : (
+                  <Field label="Email or Mobile Number *" value={identifier} onChange={setIdentifier} placeholder="maria@example.com or 09123456789" />
+                )}
+                <Field label="Password *" value={password} onChange={setPassword} type="password" placeholder="••••••••" hint={mode === 'signup' ? 'Minimum 8 characters' : undefined} />
+              </div>
 
-          <ActionButton type="submit" variant="primary" disabled={busy}>
-            {loading ? 'Please wait…' : mode === 'signin' ? 'Sign In' : 'Create Account'}
-          </ActionButton>
+              {mode === 'signin' && (
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '7px', fontSize: '0.85rem', color: '#374151', cursor: 'pointer' }}>
+                    <input
+                      type="checkbox"
+                      checked={rememberMe}
+                      onChange={(e) => setRememberMe(e.target.checked)}
+                      style={{ width: '15px', height: '15px', accentColor: G, cursor: 'pointer' }}
+                    />
+                    Remember me
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => switchMode('forgot')}
+                    style={{ background: 'none', border: 'none', color: PINK, fontWeight: 600, cursor: 'pointer', fontSize: '0.85rem', fontFamily: FONT_BODY, padding: 0 }}
+                  >
+                    Forgot password?
+                  </button>
+                </div>
+              )}
 
-          <p style={{ textAlign: 'center', fontSize: '0.85rem', color: '#9CA3AF', margin: '1rem 0 0' }}>
-            {mode === 'signin' ? "Don't have an account? " : 'Already have an account? '}
-            <button
-              type="button"
-              onClick={() => switchMode(mode === 'signin' ? 'signup' : 'signin')}
-              style={{ background: 'none', border: 'none', color: PINK, fontWeight: 600, cursor: 'pointer', fontSize: '0.85rem', fontFamily: FONT_BODY, padding: 0 }}
-            >
-              {mode === 'signin' ? 'Sign Up' : 'Sign In'}
-            </button>
-          </p>
+              <ActionButton type="submit" variant="primary" disabled={busy}>
+                {loading ? 'Please wait…' : mode === 'signin' ? 'Sign In' : 'Create Account'}
+              </ActionButton>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', margin: '1.25rem 0' }}>
-            <div style={{ flex: 1, height: '1px', backgroundColor: '#F0F1F3' }} />
-            <span style={{ fontSize: '0.72rem', color: '#9CA3AF', fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase' }}>or</span>
-            <div style={{ flex: 1, height: '1px', backgroundColor: '#F0F1F3' }} />
-          </div>
+              <p style={{ textAlign: 'center', fontSize: '0.85rem', color: '#9CA3AF', margin: '1rem 0 0' }}>
+                {mode === 'signin' ? "Don't have an account? " : 'Already have an account? '}
+                <button
+                  type="button"
+                  onClick={() => switchMode(mode === 'signin' ? 'signup' : 'signin')}
+                  style={{ background: 'none', border: 'none', color: PINK, fontWeight: 600, cursor: 'pointer', fontSize: '0.85rem', fontFamily: FONT_BODY, padding: 0 }}
+                >
+                  {mode === 'signin' ? 'Sign Up' : 'Sign In'}
+                </button>
+              </p>
 
-          <ActionButton variant="secondary" disabled={busy} onClick={() => { void handleGuest() }}>
-            {guestLoading ? 'Please wait…' : 'Continue as Guest'}
-          </ActionButton>
-          <p style={{ textAlign: 'center', fontSize: '0.78rem', color: '#9CA3AF', margin: '0.625rem 0 0', lineHeight: 1.5 }}>
-            No account needed — just enough to complete this booking.
-          </p>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', margin: '1.25rem 0' }}>
+                <div style={{ flex: 1, height: '1px', backgroundColor: '#F0F1F3' }} />
+                <span style={{ fontSize: '0.72rem', color: '#9CA3AF', fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase' }}>or</span>
+                <div style={{ flex: 1, height: '1px', backgroundColor: '#F0F1F3' }} />
+              </div>
+
+              <ActionButton variant="secondary" disabled={busy} onClick={() => { void handleGuest() }}>
+                {guestLoading ? 'Please wait…' : 'Continue as Guest'}
+              </ActionButton>
+              <p style={{ textAlign: 'center', fontSize: '0.78rem', color: '#9CA3AF', margin: '0.625rem 0 0', lineHeight: 1.5 }}>
+                No account needed — just enough to complete this booking.
+              </p>
+            </>
+          )}
         </form>
       </div>
     </div>
