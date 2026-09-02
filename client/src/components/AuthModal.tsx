@@ -295,28 +295,6 @@ export default function AuthModal({ onClose, onSuccess }: Props) {
             </>
           ) : (
             <>
-              <button
-                type="button"
-                disabled={busy}
-                onClick={() => { void handleGoogle() }}
-                style={{
-                  width: '100%', padding: '0.85rem', borderRadius: '999px', marginBottom: '1.25rem',
-                  border: '1.5px solid #E5E7EB', backgroundColor: busy ? '#F9FAFB' : 'white',
-                  color: '#374151', fontSize: '0.92rem', fontWeight: 600, fontFamily: FONT_BODY,
-                  cursor: busy ? 'default' : 'pointer',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px',
-                }}
-              >
-                <GoogleIcon />
-                {googleLoading ? 'Redirecting…' : 'Continue with Google'}
-              </button>
-
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.25rem' }}>
-                <div style={{ flex: 1, height: '1px', backgroundColor: '#F0F1F3' }} />
-                <span style={{ fontSize: '0.72rem', color: '#9CA3AF', fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase' }}>or</span>
-                <div style={{ flex: 1, height: '1px', backgroundColor: '#F0F1F3' }} />
-              </div>
-
               <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginBottom: mode === 'signin' ? '0.75rem' : '1.25rem' }}>
                 {mode === 'signup' ? (
                   <>
@@ -354,6 +332,28 @@ export default function AuthModal({ onClose, onSuccess }: Props) {
               <ActionButton type="submit" variant="primary" disabled={busy}>
                 {loading ? 'Please wait…' : mode === 'signin' ? 'Sign In' : 'Create Account'}
               </ActionButton>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', margin: '1.25rem 0' }}>
+                <div style={{ flex: 1, height: '1px', backgroundColor: '#F0F1F3' }} />
+                <span style={{ fontSize: '0.72rem', color: '#9CA3AF', fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase' }}>or</span>
+                <div style={{ flex: 1, height: '1px', backgroundColor: '#F0F1F3' }} />
+              </div>
+
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => { void handleGoogle() }}
+                style={{
+                  width: '100%', padding: '0.85rem', borderRadius: '999px',
+                  border: '1.5px solid #E5E7EB', backgroundColor: busy ? '#F9FAFB' : 'white',
+                  color: '#374151', fontSize: '0.92rem', fontWeight: 600, fontFamily: FONT_BODY,
+                  cursor: busy ? 'default' : 'pointer',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px',
+                }}
+              >
+                <GoogleIcon />
+                {googleLoading ? 'Redirecting…' : 'Continue with Google'}
+              </button>
 
               <p style={{ textAlign: 'center', fontSize: '0.85rem', color: '#9CA3AF', margin: '1rem 0 0' }}>
                 {mode === 'signin' ? "Don't have an account? " : 'Already have an account? '}
