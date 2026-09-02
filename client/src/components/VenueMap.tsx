@@ -43,11 +43,23 @@ const markerIconInstance = L.icon({
   shadowSize: [41, 41],
 })
 
-function useVenueMap(containerRef: React.RefObject<HTMLDivElement | null>, opts: { interactive: boolean; zoom: number }) {
+/**
+ * 'preview' — the card embedded in the page: pannable and pinch/double-click
+ *   zoomable like a normal small map, but with the scroll wheel and
+ *   keyboard left alone so this doesn't hijack the page's own scroll/tab
+ *   order just because the cursor happens to be over it. No zoom buttons —
+ *   there isn't room, and pinch/double-click already cover it.
+ * 'full' — the modal: everything on, including scroll-zoom and the
+ *   +/- buttons, since it's the only thing on screen at that point.
+ */
+type MapMode = 'preview' | 'full'
+
+function useVenueMap(containerRef: React.RefObject<HTMLDivElement | null>, opts: { mode: MapMode; zoom: number }) {
   useEffect(() => {
     const container = containerRef.current
     if (!container) return
 
+    const full = opts.mode === 'full'
     const map = L.map(container, {
       center: [VENUE_COORDS.lat, VENUE_COORDS.lng],
       zoom: opts.zoom,
@@ -55,27 +67,17 @@ function useVenueMap(containerRef: React.RefObject<HTMLDivElement | null>, opts:
       // location label, which sits there too — added separately below at
       // bottom-right instead, alongside the close button's own corner logic.
       zoomControl: false,
-      dragging: opts.interactive,
-      scrollWheelZoom: opts.interactive,
-      doubleClickZoom: opts.interactive,
-      touchZoom: opts.interactive,
-      boxZoom: opts.interactive,
-      keyboard: opts.interactive,
+      dragging: true,
+      scrollWheelZoom: full,
+      doubleClickZoom: true,
+      touchZoom: true,
+      boxZoom: false,
+      keyboard: false,
       attributionControl: true,
     })
-    if (!opts.interactive) {
-      // Belt and suspenders on top of the constructor options above — every
-      // interaction handler disabled explicitly, not just via the options.
-      map.dragging.disable()
-      map.touchZoom.disable()
-      map.doubleClickZoom.disable()
-      map.scrollWheelZoom.disable()
-      map.boxZoom.disable()
-      map.keyboard.disable()
-    }
     L.tileLayer(TILE_URL, { attribution: TILE_ATTRIBUTION, maxZoom: 20 }).addTo(map)
     L.marker([VENUE_COORDS.lat, VENUE_COORDS.lng], { icon: markerIconInstance }).addTo(map)
-    if (opts.interactive) L.control.zoom({ position: 'bottomright' }).addTo(map)
+    if (full) L.control.zoom({ position: 'bottomright' }).addTo(map)
 
     const ro = new ResizeObserver(() => map.invalidateSize())
     ro.observe(container)
@@ -106,7 +108,7 @@ function useModalEscapeAndScrollLock(active: boolean, onClose: () => void) {
 
 function FullscreenVenueMap({ onClose }: { onClose: () => void }) {
   const containerRef = useRef<HTMLDivElement>(null)
-  useVenueMap(containerRef, { interactive: true, zoom: 16 })
+  useVenueMap(containerRef, { mode: 'full', zoom: 16 })
   useModalEscapeAndScrollLock(true, onClose)
 
   return (
@@ -140,30 +142,29 @@ function FullscreenVenueMap({ onClose }: { onClose: () => void }) {
   )
 }
 
-/** Drop-in replacement for a static "map" placeholder: a small preview with
- * a pin, click/tap (or Enter/Space) to open the same map full-screen. */
+/** Drop-in replacement for a static "map" placeholder: a small, pannable
+ * preview with a pin. Only the corner button opens the same map
+ * full-screen — the preview itself is a real (if modest) interactive map,
+ * not a big "click anywhere" button, so dragging it around doesn't fight
+ * with expanding it. */
 export function VenueMapCard({ height = 130 }: { height?: number }) {
   const [fullscreen, setFullscreen] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
-  useVenueMap(containerRef, { interactive: false, zoom: 15 })
+  useVenueMap(containerRef, { mode: 'preview', zoom: 15 })
 
   return (
     <>
       <div
-        onClick={() => setFullscreen(true)}
-        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setFullscreen(true) } }}
-        role="button"
-        tabIndex={0}
-        aria-label="Open full-screen map"
         style={{
-          height, position: 'relative', cursor: 'pointer',
+          height, position: 'relative',
           // `position: relative` alone doesn't create a new stacking
           // context — an explicit z-index does. Without one, Leaflet's own
           // internal panes (it uses z-index up to 700 for markers/popups,
           // meant to stay local to its own container) compare directly
           // against page-level z-indices, including the fullscreen
-          // overlay's — which is how this card's pin ended up visually
-          // painting on top of a fullscreen view it's sitting behind.
+          // overlay's — which is how this card's pin used to end up
+          // visually painting on top of a fullscreen view it's sitting
+          // behind.
           zIndex: 0,
           // Hidden rather than unmounted while fullscreen is open: keeps
           // the same Leaflet instance alive (no reinitialization cost) but
@@ -172,21 +173,18 @@ export function VenueMapCard({ height = 130 }: { height?: number }) {
           visibility: fullscreen ? 'hidden' : 'visible',
         }}
       >
-        {/* Leaflet attaches its own pointer/touch handlers straight to this
-            element; even with every interaction handler disabled above,
-            routing all pointer events to the wrapping div instead is what
-            actually guarantees a click here can only ever open the
-            full-screen view, never begin a drag. */}
-        <div ref={containerRef} style={{ width: '100%', height: '100%', pointerEvents: 'none' }} />
-        <span
+        <div ref={containerRef} style={{ width: '100%', height: '100%' }} />
+        <button
+          onClick={() => setFullscreen(true)}
+          aria-label="Open full-screen map"
           style={{
             position: 'absolute', bottom: '8px', right: '8px', backgroundColor: 'white',
-            borderRadius: '8px', padding: '5px', display: 'flex', alignItems: 'center',
-            boxShadow: '0 1px 5px rgba(0,0,0,0.2)', pointerEvents: 'none', zIndex: 1000,
+            border: 'none', borderRadius: '8px', padding: '5px', display: 'flex', alignItems: 'center',
+            boxShadow: '0 1px 5px rgba(0,0,0,0.2)', cursor: 'pointer', zIndex: 1000,
           }}
         >
           <Maximize2 size={13} color="#374151" />
-        </span>
+        </button>
       </div>
 
       {fullscreen && <FullscreenVenueMap onClose={() => setFullscreen(false)} />}
