@@ -250,4 +250,8 @@ export const memberAccessInput = z.object({
 export const reportQuery = z.object({
   year: z.coerce.number().int().min(2000).max(2100),
   month: z.coerce.number().int().min(1).max(12),
+  // Omitted on a single-month request — the handler falls back to year/month
+  // for both ends of the range.
+  toYear: z.coerce.number().int().min(2000).max(2100).optional(),
+  toMonth: z.coerce.number().int().min(1).max(12).optional(),
 })

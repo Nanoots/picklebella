@@ -275,6 +275,15 @@ export const admin = {
   setMemberAccess: (email: string, patch: { banned?: boolean; vip?: boolean; notes?: string }) =>
     request<MemberSummary>('/api/admin/members', { method: 'PATCH', body: { email, ...patch }, auth: true }),
 
-  getReport: (year: number, month: number) =>
-    request<MonthlyReport>('/api/admin/reports' + qs({ year: String(year), month: String(month) }), { auth: true }),
+  getReport: (year: number, month: number, to?: { year: number; month: number }) =>
+    request<MonthlyReport>(
+      '/api/admin/reports' +
+        qs({
+          year: String(year),
+          month: String(month),
+          toYear: to ? String(to.year) : undefined,
+          toMonth: to ? String(to.month) : undefined,
+        }),
+      { auth: true },
+    ),
 }

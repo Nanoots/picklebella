@@ -6,6 +6,7 @@ import type { Booking, Court } from '../../lib/types'
 import { OPEN_HOUR, CLOSE_HOUR } from '../../lib/types'
 import { fmtHour, fmtDate, fmtMoney, todayStr } from '../../lib/format'
 import { useAsync, errorMessage } from '../../lib/useAsync'
+import { useIsMobile } from '../../lib/useMediaQuery'
 import { PAYMENT_METHODS } from '../../lib/paymentMethods'
 import { G_DARK, FONT_DISPLAY, FONT_BODY } from '../../lib/theme'
 import { StatusBadge, PaymentMethodTag, SectionCard } from './shared'
@@ -18,6 +19,7 @@ interface Props {
 }
 
 export default function ReservationsView({ bookings, courts, refresh, showToast }: Props) {
+  const isMobile = useIsMobile()
   const [courtFilter, setCourtFilter] = useState('all')
   const [statusFilter, setStatusFilter] = useState('all')
   const [dateFilter, setDateFilter] = useState('')
@@ -67,7 +69,7 @@ export default function ReservationsView({ bookings, courts, refresh, showToast 
         title="Reservations"
         subtitle={`${filtered.length} booking${filtered.length === 1 ? '' : 's'}`}
         action={
-          <div className="flex items-center gap-2 flex-wrap">
+          <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', alignItems: isMobile ? 'stretch' : 'center', gap: '0.5rem', flexWrap: isMobile ? undefined : 'wrap', width: isMobile ? '100%' : undefined }}>
             <div className="relative">
               <Search size={14} className="absolute top-1/2 -translate-y-1/2 text-gray-400" style={{ left: '9px' }} />
               <input
@@ -76,23 +78,33 @@ export default function ReservationsView({ bookings, courts, refresh, showToast 
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Search name, phone, email, ref…"
                 className="text-sm border border-gray-200 rounded-lg py-1.5"
-                style={{ paddingLeft: '30px', paddingRight: '10px', width: '210px' }}
+                style={{ paddingLeft: '30px', paddingRight: '10px', width: isMobile ? '100%' : '210px', boxSizing: 'border-box' }}
               />
             </div>
-            <select value={courtFilter} onChange={(e) => setCourtFilter(e.target.value)} className="text-sm border border-gray-200 rounded-lg px-2.5 py-1.5">
-              <option value="all">All Courts</option>
-              {courts.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-            </select>
-            <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="text-sm border border-gray-200 rounded-lg px-2.5 py-1.5">
-              <option value="all">All Statuses</option>
-              <option value="paid">Paid</option>
-              <option value="cancelled">Cancelled</option>
-            </select>
-            <input type="date" value={dateFilter} onChange={(e) => setDateFilter(e.target.value)} className="text-sm border border-gray-200 rounded-lg px-2.5 py-1.5" />
-            <button onClick={() => { setCourtFilter('all'); setStatusFilter('all'); setDateFilter(''); setSearch('') }} className="text-sm text-gray-500 bg-transparent border-none cursor-pointer">Clear</button>
+            <div style={{ display: 'flex', gap: '0.5rem' }}>
+              <select value={courtFilter} onChange={(e) => setCourtFilter(e.target.value)} className="text-sm border border-gray-200 rounded-lg px-2.5 py-1.5" style={isMobile ? { flex: 1, minWidth: 0 } : undefined}>
+                <option value="all">All Courts</option>
+                {courts.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </select>
+              <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="text-sm border border-gray-200 rounded-lg px-2.5 py-1.5" style={isMobile ? { flex: 1, minWidth: 0 } : undefined}>
+                <option value="all">All Statuses</option>
+                <option value="paid">Paid</option>
+                <option value="cancelled">Cancelled</option>
+              </select>
+            </div>
+            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+              <input
+                type="date"
+                value={dateFilter}
+                onChange={(e) => setDateFilter(e.target.value)}
+                className="text-sm border border-gray-200 rounded-lg px-2.5 py-1.5"
+                style={isMobile ? { flex: 1, minWidth: 0 } : undefined}
+              />
+              <button onClick={() => { setCourtFilter('all'); setStatusFilter('all'); setDateFilter(''); setSearch('') }} className="text-sm text-gray-500 bg-transparent border-none cursor-pointer" style={{ flexShrink: 0 }}>Clear</button>
+            </div>
             <button
               onClick={() => setAdding(true)}
-              style={{ display: 'flex', alignItems: 'center', gap: '5px', backgroundColor: G_DARK, color: 'white', border: 'none', borderRadius: '999px', padding: '0.4rem 0.9rem', fontSize: '0.8rem', fontWeight: 700, cursor: 'pointer', fontFamily: FONT_BODY }}
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px', backgroundColor: G_DARK, color: 'white', border: 'none', borderRadius: '999px', padding: '0.4rem 0.9rem', fontSize: '0.8rem', fontWeight: 700, cursor: 'pointer', fontFamily: FONT_BODY }}
             >
               <Plus size={14} /> New Booking
             </button>
@@ -100,10 +112,10 @@ export default function ReservationsView({ bookings, courts, refresh, showToast 
         }
       >
         <div className="overflow-x-auto">
-          <table className="w-full text-sm border-collapse min-w-[820px]">
+          <table className="w-full text-sm border-collapse min-w-[680px]">
             <thead>
               <tr className="text-left text-xs font-bold text-gray-400 uppercase tracking-wide border-b border-gray-100">
-                <th className="py-2 pr-3">Ref</th>
+                <th className="py-2 pr-3" style={{ width: '1%' }}>Ref</th>
                 <th className="py-2 pr-3">Court</th>
                 <th className="py-2 pr-3">Date & Time</th>
                 <th className="py-2 pr-3">Guest</th>
@@ -118,13 +130,13 @@ export default function ReservationsView({ bookings, courts, refresh, showToast 
                 const court = courtFor(b.courtId)
                 return (
                   <tr key={b.id} className="border-b border-gray-50">
-                    <td className="py-3 pr-3 font-bold text-gray-900">{b.id.toUpperCase()}</td>
-                    <td className="py-3 pr-3">{court ? court.name : b.courtId}</td>
-                    <td className="py-3 pr-3">
+                    <td className="py-3 pr-3 font-mono text-xs text-gray-500" title={b.id} style={{ whiteSpace: 'nowrap' }}>{b.id.slice(0, 8).toUpperCase()}</td>
+                    <td className="py-3 pr-3 text-gray-900" style={{ whiteSpace: 'nowrap' }}>{court ? court.name : b.courtId}</td>
+                    <td className="py-3 pr-3 text-gray-900" style={{ whiteSpace: 'nowrap' }}>
                       {fmtDate(b.date)}<br />
                       <span className="text-gray-400 text-xs">{fmtHour(b.startHour)} – {fmtHour(b.startHour + b.duration)}</span>
                     </td>
-                    <td className="py-3 pr-3">
+                    <td className="py-3 pr-3 text-gray-900">
                       {b.name}<br /><span className="text-gray-400 text-xs">{b.phone}</span>
                     </td>
                     <td className="py-3 pr-3"><PaymentMethodTag methodId={b.paymentMethod} /></td>

@@ -1,13 +1,29 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
-import { ok, requireMethod, withApi } from '../http.js'
+import { ok, requireMethod, withApi, badRequest } from '../http.js'
 import { requireAdmin } from '../auth.js'
 import { db } from '../supabase.js'
 import { getCourts, getHoursConfig } from '../settings.js'
 import { hoursForDate, mapBooking } from '../domain.js'
 import { parse, reportQuery } from '../validation.js'
 
+const pad = (n: number) => String(n).padStart(2, '0')
+
+/** Every date string (YYYY-MM-DD) from `first` to `last`, inclusive. */
+function* dateRange(first: string, last: string): Generator<string> {
+  const [fy, fm, fd] = first.split('-').map(Number)
+  const [ly, lm, ld] = last.split('-').map(Number)
+  // Date.UTC's month is 0-based (0 = January) — both ends need the -1.
+  const end = Date.UTC(ly!, lm! - 1, ld!)
+  let cursor = Date.UTC(fy!, fm! - 1, fd!)
+  while (cursor <= end) {
+    const d = new Date(cursor)
+    yield `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())}`
+    cursor += 24 * 60 * 60 * 1000
+  }
+}
+
 /**
- * Monthly revenue and occupancy figures.
+ * Revenue and occupancy figures for a month, or a From/To range of months.
  *
  * Every booking is paid at the moment it is made, so "paid" and "not
  * cancelled" describe the same set — bookings here always means paid ones.
@@ -16,13 +32,23 @@ export default withApi(async (req: VercelRequest, res: VercelResponse) => {
   requireMethod(req, 'GET')
   await requireAdmin(req)
 
-  const { year, month } = parse(reportQuery, { year: req.query.year, month: req.query.month })
+  const { year, month, toYear, toMonth } = parse(reportQuery, {
+    year: req.query.year,
+    month: req.query.month,
+    toYear: req.query.toYear,
+    toMonth: req.query.toMonth,
+  })
+  const endYear = toYear ?? year
+  const endMonth = toMonth ?? month
 
-  const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate()
-  const pad = (n: number) => String(n).padStart(2, '0')
-  const prefix = `${year}-${pad(month)}-`
-  const firstDay = `${prefix}01`
-  const lastDay = `${prefix}${pad(daysInMonth)}`
+  const firstDay = `${year}-${pad(month)}-01`
+  const daysInEndMonth = new Date(Date.UTC(endYear, endMonth, 0)).getUTCDate()
+  const lastDay = `${endYear}-${pad(endMonth)}-${pad(daysInEndMonth)}`
+  if (lastDay < firstDay) throw badRequest('The "to" month must be on or after the "from" month.', 'invalid_range')
+  // 25 months caps a "this month back to a year ago" query with room to
+  // spare, while still keeping a single request from scanning years of rows.
+  const spanMonths = (endYear - year) * 12 + (endMonth - month) + 1
+  if (spanMonths > 25) throw badRequest('That date range is too wide — pick 25 months or fewer.', 'range_too_wide')
 
   const [{ data: rows, error }, courts, hoursCfg] = await Promise.all([
     db
@@ -42,7 +68,7 @@ export default withApi(async (req: VercelRequest, res: VercelResponse) => {
   const bookedHours = bookings.reduce((sum, b) => sum + b.duration, 0)
 
   const dailyMap = new Map<string, { amount: number; count: number }>()
-  for (let d = 1; d <= daysInMonth; d++) dailyMap.set(`${prefix}${pad(d)}`, { amount: 0, count: 0 })
+  for (const date of dateRange(firstDay, lastDay)) dailyMap.set(date, { amount: 0, count: 0 })
   for (const b of bookings) {
     const entry = dailyMap.get(b.date)
     if (entry) {
@@ -65,8 +91,8 @@ export default withApi(async (req: VercelRequest, res: VercelResponse) => {
   // Occupancy is measured against hours the venue was actually open, so
   // closures and holiday hours don't drag the percentage down.
   let totalOpenHours = 0
-  for (let d = 1; d <= daysInMonth; d++) {
-    const h = hoursForDate(hoursCfg, `${prefix}${pad(d)}`)
+  for (const date of dateRange(firstDay, lastDay)) {
+    const h = hoursForDate(hoursCfg, date)
     if (!h.closed) totalOpenHours += Math.max(0, h.close - h.open)
   }
 

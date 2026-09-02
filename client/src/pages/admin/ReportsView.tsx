@@ -5,9 +5,10 @@ import type { MemberSummary, MonthlyReport } from '../../lib/types'
 import { fmtMoney, fmtHour, todayStr } from '../../lib/format'
 import { useAsync } from '../../lib/useAsync'
 import { ErrorBlock, LoadingBlock } from '../../components/States'
-import { G, FONT_BODY, FONT_DISPLAY } from '../../lib/theme'
+import { G, LIME, FONT_BODY, FONT_DISPLAY } from '../../lib/theme'
+import { useIsMobile } from '../../lib/useMediaQuery'
 import { getPaymentMethod } from '../../lib/paymentMethods'
-import { useAdminColors } from './adminTheme'
+import { useAdminColors, useAdminTheme } from './adminTheme'
 import { StatCard, SectionCard, MonthYearPicker } from './shared'
 import { AreaChart, ColumnChart, HBarChart, VIZ } from './charts'
 
@@ -31,17 +32,26 @@ const TABS: { key: Tab; label: string }[] = [
 ]
 
 const MEDALS = ['🥇', '🥈', '🥉']
+const MONTH_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
 export default function ReportsView() {
   const colors = useAdminColors()
+  const { dark } = useAdminTheme()
+  const isMobile = useIsMobile()
   const today = new Date(todayStr() + 'T00:00:00')
-  const [year, setYear] = useState(today.getFullYear())
-  const [month, setMonth] = useState(today.getMonth() + 1)
+  const [fromYear, setFromYear] = useState(today.getFullYear())
+  const [fromMonth, setFromMonth] = useState(today.getMonth() + 1)
+  const [toYear, setToYear] = useState(today.getFullYear())
+  const [toMonth, setToMonth] = useState(today.getMonth() + 1)
   const [tab, setTab] = useState<Tab>('overview')
+  const singleMonth = fromYear === toYear && fromMonth === toMonth
 
   // Aggregated server-side: the browser never sees the underlying bookings,
   // which is the difference between a revenue figure and a customer list.
-  const state = useAsync<MonthlyReport>(() => api.admin.getReport(year, month), [year, month])
+  const state = useAsync<MonthlyReport>(
+    () => api.admin.getReport(fromYear, fromMonth, { year: toYear, month: toMonth }),
+    [fromYear, fromMonth, toYear, toMonth],
+  )
   const report = state.data ?? EMPTY_REPORT
 
   // Only fetched once the tab is actually opened — this is the one report
@@ -52,6 +62,15 @@ export default function ReportsView() {
     () => (tab === 'leaderboard' ? api.admin.listMembers() : Promise.resolve([])),
     [tab === 'leaderboard'],
   )
+  function onFromChange(y: number, m: number) {
+    setFromYear(y); setFromMonth(m)
+    if (y > toYear || (y === toYear && m > toMonth)) { setToYear(y); setToMonth(m) }
+  }
+  function onToChange(y: number, m: number) {
+    setToYear(y); setToMonth(m)
+    if (y < fromYear || (y === fromYear && m < fromMonth)) { setFromYear(y); setFromMonth(m) }
+  }
+
   const leaderboard = [...(membersState.data ?? [])].sort((a, b) =>
     b.bookingsCount - a.bookingsCount || b.totalSpent - a.totalSpent,
   )
@@ -92,19 +111,28 @@ export default function ReportsView() {
       }))
   ).map((h) => ({ label: fmtHour(h.hour).replace(':00', ''), value: h.count }))
 
+  const periodLabel = singleMonth
+    ? `${MONTH_SHORT[fromMonth - 1]} ${fromYear}`
+    : `${MONTH_SHORT[fromMonth - 1]} ${fromYear} – ${MONTH_SHORT[toMonth - 1]} ${toYear}`
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div style={{ display: 'flex', gap: '0.4rem', backgroundColor: colors.borderSoft, borderRadius: '12px', padding: '4px' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+        <div
+          style={{
+            display: 'flex', gap: '0.4rem', backgroundColor: colors.borderSoft, borderRadius: '12px', padding: '4px',
+            overflowX: isMobile ? 'auto' : undefined, WebkitOverflowScrolling: 'touch',
+          }}
+        >
           {TABS.map((t) => (
             <button
               key={t.key}
               onClick={() => setTab(t.key)}
               style={{
                 border: 'none', borderRadius: '9px', padding: '0.5rem 0.9rem', fontSize: '0.82rem', fontWeight: 600,
-                cursor: 'pointer', fontFamily: FONT_BODY,
-                backgroundColor: tab === t.key ? colors.card : 'transparent',
-                color: tab === t.key ? G : colors.textFaint,
+                cursor: 'pointer', fontFamily: FONT_BODY, whiteSpace: 'nowrap', flexShrink: 0,
+                backgroundColor: tab === t.key ? (dark ? colors.hoverBg : colors.card) : 'transparent',
+                color: tab === t.key ? (dark ? LIME : G) : colors.textFaint,
                 boxShadow: tab === t.key ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
               }}
             >
@@ -112,8 +140,10 @@ export default function ReportsView() {
             </button>
           ))}
         </div>
-        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-          <MonthYearPicker year={year} month={month} onChange={(y, m) => { setYear(y); setMonth(m) }} />
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', alignItems: 'center' }}>
+          <MonthYearPicker year={fromYear} month={fromMonth} onChange={onFromChange} />
+          <span style={{ fontSize: '0.8rem', color: colors.textFaint, fontFamily: FONT_BODY }}>to</span>
+          <MonthYearPicker year={toYear} month={toMonth} onChange={onToChange} />
           <button
             onClick={state.reload}
             disabled={state.loading}
@@ -129,12 +159,14 @@ export default function ReportsView() {
 
       {state.data && tab === 'overview' && (
         <>
-          <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
+          <div className="grid" style={{ gap: isMobile ? '0.6rem' : '1rem', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(auto-fit, minmax(200px, 1fr))' }}>
             <StatCard label="Bookings" value={report.bookingsCount} sub="active this period" accent={VIZ.blue} icon={CalendarCheck} />
             <StatCard label="Court Revenue" value={fmtMoney(report.revenue)} sub="paid bookings" accent={VIZ.green} icon={Wallet} />
-            <StatCard label="Booked Hours" value={report.bookedHours.toFixed(1)} sub="across all courts" accent={VIZ.amber} icon={Clock3} />
+            <div style={isMobile ? { gridColumn: '1 / -1' } : undefined}>
+              <StatCard label="Booked Hours" value={report.bookedHours.toFixed(1)} sub="across all courts" accent={VIZ.amber} icon={Clock3} />
+            </div>
           </div>
-          <SectionCard title="Daily revenue" subtitle="Paid court revenue by day this month">
+          <SectionCard title="Daily revenue" subtitle={`Paid court revenue by day · ${periodLabel}`}>
             <AreaChart
               data={dailyRevenueData}
               color={VIZ.green}
@@ -143,7 +175,7 @@ export default function ReportsView() {
               renderTooltip={revenueTooltip}
               categoryHeading="Day of month"
               valueHeading="Revenue"
-              emptyMessage="No paid bookings this month."
+              emptyMessage="No paid bookings this period."
             />
           </SectionCard>
         </>
@@ -151,7 +183,7 @@ export default function ReportsView() {
 
       {state.data && tab === 'revenue' && (
         <>
-          <SectionCard title="Daily revenue" subtitle="Paid court revenue by day this month">
+          <SectionCard title="Daily revenue" subtitle={`Paid court revenue by day · ${periodLabel}`}>
             <AreaChart
               data={dailyRevenueData}
               color={VIZ.green}
@@ -161,10 +193,10 @@ export default function ReportsView() {
               renderTooltip={revenueTooltip}
               categoryHeading="Day of month"
               valueHeading="Revenue"
-              emptyMessage="No paid bookings this month."
+              emptyMessage="No paid bookings this period."
             />
           </SectionCard>
-          <SectionCard title="Revenue by payment method" subtitle="Paid bookings this period">
+          <SectionCard title="Revenue by payment method" subtitle={`Paid bookings · ${periodLabel}`}>
             <HBarChart
               data={paymentData}
               color={VIZ.blue}
@@ -178,7 +210,7 @@ export default function ReportsView() {
       )}
 
       {state.data && tab === 'occupancy' && (
-        <SectionCard title="Court occupancy" subtitle="Percent of open hours booked this period">
+        <SectionCard title="Court occupancy" subtitle={`Percent of open hours booked · ${periodLabel}`}>
           {/* Fixed 0–100 scale: occupancy is a share, so a court at 12% must
               look like a court at 12% rather than filling the bar because it
               happens to be the busiest one this month. */}
@@ -195,7 +227,7 @@ export default function ReportsView() {
       )}
 
       {state.data && tab === 'peak' && (
-        <SectionCard title="Peak hours" subtitle="Bookings by hour of day this period">
+        <SectionCard title="Peak hours" subtitle={`Bookings by hour of day · ${periodLabel}`}>
           <ColumnChart
             data={peakHoursData}
             color={VIZ.amber}
