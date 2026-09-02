@@ -107,7 +107,7 @@ function AdminPageInner({ onExit, onLogout }: Props) {
   const meta = SECTION_META[section]
 
   return (
-    <div className={dark ? 'dark' : undefined} style={{ fontFamily: FONT_BODY, display: 'flex', minHeight: '100vh', backgroundColor: colors.bg, color: colors.text }}>
+    <div className={`pb-admin${dark ? ' dark' : ''}`} style={{ fontFamily: FONT_BODY, display: 'flex', minHeight: '100vh', backgroundColor: colors.bg, color: colors.text }}>
       <AdminSidebar section={section} onSelect={selectSection} onLogout={onLogout} open={navOpen} onClose={() => setNavOpen(false)} />
 
       <div style={{ flex: 1, minWidth: 0 }}>

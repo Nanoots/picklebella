@@ -85,27 +85,34 @@ export function PaymentMethodTag({ methodId }: { methodId: string }) {
 
 const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
 
-export function MonthYearPicker({
-  year, month, onChange,
-}: { year: number; month: number; onChange: (year: number, month: number) => void }) {
+/** A bare month dropdown — pairs with a single shared YearInput rather than
+ * carrying its own year, for pickers like a From/To range where one year
+ * applies to both ends. */
+export function MonthSelect({
+  month, onChange, label,
+}: { month: number; onChange: (month: number) => void; label?: string }) {
   return (
-    <div style={{ display: 'flex', gap: '0.5rem' }}>
-      <select
-        value={month}
-        onChange={(e) => onChange(year, Number(e.target.value))}
-        className="text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white"
-        style={{ fontFamily: FONT_BODY }}
-      >
-        {MONTH_NAMES.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
-      </select>
-      <input
-        type="number"
-        value={year}
-        onChange={(e) => onChange(Number(e.target.value) || year, month)}
-        className="text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white"
-        style={{ fontFamily: FONT_BODY, width: '90px' }}
-      />
-    </div>
+    <select
+      value={month}
+      onChange={(e) => onChange(Number(e.target.value))}
+      aria-label={label}
+      className="text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white"
+      style={{ fontFamily: FONT_BODY }}
+    >
+      {MONTH_NAMES.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
+    </select>
+  )
+}
+
+export function YearInput({ year, onChange }: { year: number; onChange: (year: number) => void }) {
+  return (
+    <input
+      type="number"
+      value={year}
+      onChange={(e) => onChange(Number(e.target.value) || year)}
+      className="text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white"
+      style={{ fontFamily: FONT_BODY, width: '90px' }}
+    />
   )
 }
 

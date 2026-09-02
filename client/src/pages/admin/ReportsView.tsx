@@ -9,7 +9,7 @@ import { G, LIME, FONT_BODY, FONT_DISPLAY } from '../../lib/theme'
 import { useIsMobile } from '../../lib/useMediaQuery'
 import { getPaymentMethod } from '../../lib/paymentMethods'
 import { useAdminColors, useAdminTheme } from './adminTheme'
-import { StatCard, SectionCard, MonthYearPicker } from './shared'
+import { StatCard, SectionCard, MonthSelect, YearInput } from './shared'
 import { AreaChart, ColumnChart, HBarChart, VIZ } from './charts'
 
 const EMPTY_REPORT: MonthlyReport = {
@@ -39,18 +39,17 @@ export default function ReportsView() {
   const { dark } = useAdminTheme()
   const isMobile = useIsMobile()
   const today = new Date(todayStr() + 'T00:00:00')
-  const [fromYear, setFromYear] = useState(today.getFullYear())
+  const [year, setYear] = useState(today.getFullYear())
   const [fromMonth, setFromMonth] = useState(today.getMonth() + 1)
-  const [toYear, setToYear] = useState(today.getFullYear())
   const [toMonth, setToMonth] = useState(today.getMonth() + 1)
   const [tab, setTab] = useState<Tab>('overview')
-  const singleMonth = fromYear === toYear && fromMonth === toMonth
+  const singleMonth = fromMonth === toMonth
 
   // Aggregated server-side: the browser never sees the underlying bookings,
   // which is the difference between a revenue figure and a customer list.
   const state = useAsync<MonthlyReport>(
-    () => api.admin.getReport(fromYear, fromMonth, { year: toYear, month: toMonth }),
-    [fromYear, fromMonth, toYear, toMonth],
+    () => api.admin.getReport(year, fromMonth, { year, month: toMonth }),
+    [year, fromMonth, toMonth],
   )
   const report = state.data ?? EMPTY_REPORT
 
@@ -62,13 +61,13 @@ export default function ReportsView() {
     () => (tab === 'leaderboard' ? api.admin.listMembers() : Promise.resolve([])),
     [tab === 'leaderboard'],
   )
-  function onFromChange(y: number, m: number) {
-    setFromYear(y); setFromMonth(m)
-    if (y > toYear || (y === toYear && m > toMonth)) { setToYear(y); setToMonth(m) }
+  function onFromMonthChange(m: number) {
+    setFromMonth(m)
+    if (m > toMonth) setToMonth(m)
   }
-  function onToChange(y: number, m: number) {
-    setToYear(y); setToMonth(m)
-    if (y < fromYear || (y === fromYear && m < fromMonth)) { setFromYear(y); setFromMonth(m) }
+  function onToMonthChange(m: number) {
+    setToMonth(m)
+    if (m < fromMonth) setFromMonth(m)
   }
 
   const leaderboard = [...(membersState.data ?? [])].sort((a, b) =>
@@ -112,8 +111,8 @@ export default function ReportsView() {
   ).map((h) => ({ label: fmtHour(h.hour).replace(':00', ''), value: h.count }))
 
   const periodLabel = singleMonth
-    ? `${MONTH_SHORT[fromMonth - 1]} ${fromYear}`
-    : `${MONTH_SHORT[fromMonth - 1]} ${fromYear} – ${MONTH_SHORT[toMonth - 1]} ${toYear}`
+    ? `${MONTH_SHORT[fromMonth - 1]} ${year}`
+    : `${MONTH_SHORT[fromMonth - 1]} – ${MONTH_SHORT[toMonth - 1]} ${year}`
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
@@ -141,9 +140,11 @@ export default function ReportsView() {
           ))}
         </div>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', alignItems: 'center' }}>
-          <MonthYearPicker year={fromYear} month={fromMonth} onChange={onFromChange} />
+          <span style={{ fontSize: '0.8rem', color: colors.textFaint, fontFamily: FONT_BODY }}>From</span>
+          <MonthSelect month={fromMonth} onChange={onFromMonthChange} label="From month" />
           <span style={{ fontSize: '0.8rem', color: colors.textFaint, fontFamily: FONT_BODY }}>to</span>
-          <MonthYearPicker year={toYear} month={toMonth} onChange={onToChange} />
+          <MonthSelect month={toMonth} onChange={onToMonthChange} label="To month" />
+          <YearInput year={year} onChange={setYear} />
           <button
             onClick={state.reload}
             disabled={state.loading}

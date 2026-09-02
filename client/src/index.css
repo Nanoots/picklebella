@@ -170,6 +170,22 @@ button {
    the --pb-* variables below via inline `var(...)`.
    --------------------------------------------------------------- */
 
+/* Flipping the `.dark` class recomputes every --pb-* variable and every
+   Tailwind-class override below in the same instant, which otherwise reads
+   as a jarring flash rather than a theme change. `.pb-admin` (on AdminPage's
+   root, regardless of theme — see AdminPage.tsx) rather than `.dark` itself,
+   since the transition needs to be in place for the dark→light direction
+   too, where `.dark` is what's being removed. Excluded from the reduced-
+   motion override further down, which already forces every duration to
+   ~0 — this doesn't need its own opt-out. */
+.pb-admin,
+.pb-admin *,
+.pb-admin *::before,
+.pb-admin *::after {
+  transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease,
+    box-shadow 0.2s ease, fill 0.2s ease, stroke 0.2s ease;
+}
+
 /* Light-mode defaults for the handful of inline `style={{ color: 'var(--pb-…)' }}`
    spots scattered across the admin views (form labels, chip backgrounds,
    card dividers) — anywhere swapping a literal hex for a CSS variable was
