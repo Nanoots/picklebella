@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useState } from 'react'
+import { Menu } from 'lucide-react'
 import * as api from '../lib/api'
 import type { Booking, Block, Court } from '../lib/types'
 import { errorMessage } from '../lib/useAsync'
 import { ErrorBlock, LoadingBlock } from '../components/States'
 import { FONT_BODY, FONT_DISPLAY, G_DARK } from '../lib/theme'
+import { useIsNarrow } from '../lib/useMediaQuery'
 import AdminSidebar from './admin/AdminSidebar'
 import DashboardView from './admin/DashboardView'
 import FacilitiesView from './admin/FacilitiesView'
@@ -31,13 +33,28 @@ const SECTION_META: Record<AdminSection, { title: string; subtitle: string }> = 
 }
 
 export default function AdminPage({ onExit, onLogout }: Props) {
+  const isNarrow = useIsNarrow()
   const [section, setSection] = useState<AdminSection>('dashboard')
+  const [navOpen, setNavOpen] = useState(false)
   const [bookings, setBookings] = useState<Booking[]>([])
   const [blocks, setBlocks] = useState<Block[]>([])
   const [courts, setCourts] = useState<Court[]>([])
   const [toast, setToast] = useState('')
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState('')
+
+  // A resize past the tablet breakpoint should drop the mobile drawer state
+  // rather than leave it open (or transformed off-screen) once the layout
+  // switches back to the fixed sidebar.
+  useEffect(() => { if (!isNarrow) setNavOpen(false) }, [isNarrow])
+
+  // Prevent the page behind the drawer from scrolling while it's open.
+  useEffect(() => {
+    if (!navOpen) return
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => { document.body.style.overflow = prev }
+  }, [navOpen])
   // Bumped on every refresh so views that fetch their own data (Members) know
   // to re-read instead of showing figures from before the last write.
   const [dataVersion, setDataVersion] = useState(0)
@@ -80,25 +97,36 @@ export default function AdminPage({ onExit, onLogout }: Props) {
 
   return (
     <div style={{ fontFamily: FONT_BODY, display: 'flex', minHeight: '100vh', backgroundColor: '#F6F7F5' }}>
-      <AdminSidebar section={section} onSelect={selectSection} onLogout={onLogout} />
+      <AdminSidebar section={section} onSelect={selectSection} onLogout={onLogout} open={navOpen} onClose={() => setNavOpen(false)} />
 
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ backgroundColor: 'white', borderBottom: '1px solid #EEF0ED', position: 'sticky', top: 0, zIndex: 30 }}>
-          <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '1.1rem 1.75rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <div>
-              <h1 style={{ fontFamily: FONT_DISPLAY, fontSize: '1.3rem', fontWeight: 700, color: G_DARK, margin: 0 }}>{meta.title}</h1>
-              <p style={{ fontSize: '0.8rem', color: '#9CA3AF', margin: '2px 0 0' }}>{meta.subtitle}</p>
+          <div style={{ maxWidth: '1400px', margin: '0 auto', padding: isNarrow ? '0.9rem 1rem' : '1.1rem 1.75rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.75rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', minWidth: 0 }}>
+              {isNarrow && (
+                <button
+                  onClick={() => setNavOpen(true)}
+                  aria-label="Open menu"
+                  style={{ border: '1px solid #E5E7EB', background: 'white', borderRadius: '8px', padding: '0.45rem', cursor: 'pointer', display: 'flex', flexShrink: 0, color: G_DARK }}
+                >
+                  <Menu size={19} />
+                </button>
+              )}
+              <div style={{ minWidth: 0 }}>
+                <h1 style={{ fontFamily: FONT_DISPLAY, fontSize: isNarrow ? '1.1rem' : '1.3rem', fontWeight: 700, color: G_DARK, margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{meta.title}</h1>
+                {!isNarrow && <p style={{ fontSize: '0.8rem', color: '#9CA3AF', margin: '2px 0 0' }}>{meta.subtitle}</p>}
+              </div>
             </div>
             <button
               onClick={onExit}
-              style={{ color: '#4B5563', background: 'white', border: '1px solid #E5E7EB', borderRadius: '999px', padding: '0.5rem 1.1rem', fontSize: '0.82rem', fontWeight: 600, cursor: 'pointer', fontFamily: FONT_BODY }}
+              style={{ color: '#4B5563', background: 'white', border: '1px solid #E5E7EB', borderRadius: '999px', padding: isNarrow ? '0.45rem 0.85rem' : '0.5rem 1.1rem', fontSize: '0.82rem', fontWeight: 600, cursor: 'pointer', fontFamily: FONT_BODY, flexShrink: 0 }}
             >
               View Site
             </button>
           </div>
         </div>
 
-        <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '1.5rem 1.75rem 3rem' }}>
+        <div style={{ maxWidth: '1400px', margin: '0 auto', padding: isNarrow ? '1.1rem 1rem 2.5rem' : '1.5rem 1.75rem 3rem' }}>
           {loading ? (
             <LoadingBlock label="Loading admin data…" pad="4rem" />
           ) : loadError ? (
