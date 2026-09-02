@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import logoImg from '@/imports/opt/logo.webp'
 import courtNoneImg from '@/imports/opt/Court123.webp'
 import courtAllImg from '@/imports/opt/Court_1_2_3.webp'
@@ -18,7 +18,12 @@ import { fmtDateLong, fmtHour, fmtMoney, todayStr, toLocalDateStr } from '../lib
 import { useAsync } from '../lib/useAsync'
 import { useIsMobile, useIsNarrow } from '../lib/useMediaQuery'
 import { ErrorBlock, LoadingBlock } from '../components/States'
+import { VENUE_MAPS_URL, VENUE_ADDRESS } from '../lib/venue'
 import { BLUE, AVAILABLE_GREEN, FONT_BODY, FONT_DISPLAY, G_DARK, PINK } from '../lib/theme'
+
+// maplibre-gl is heavy — loaded only once this card is actually rendered,
+// not folded into the page's own chunk.
+const VenueMapCard = lazy(() => import('../components/VenueMap'))
 
 export type SelectedSlot = {
   date: string
@@ -583,7 +588,7 @@ export default function BookingPage({ user, initialCourtId, initialTab, onBack, 
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" strokeWidth="2" strokeLinecap="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" /><circle cx="12" cy="10" r="3" /></svg>
-                <span style={{ fontSize: '0.8rem', color: '#374151' }}>Jamison St., Isulan, Sultan Kudarat</span>
+                <span style={{ fontSize: '0.8rem', color: '#374151' }}>{VENUE_ADDRESS}</span>
               </div>
             </div>
           </div>
@@ -592,7 +597,7 @@ export default function BookingPage({ user, initialCourtId, initialTab, onBack, 
             <div style={{ padding: '0.875rem 1.25rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <h3 style={{ fontSize: '0.88rem', fontWeight: 700, color: '#111827', margin: 0 }}>Location</h3>
               <a
-                href="https://www.google.com/maps/search/?api=1&query=6.628528,124.603528"
+                href={VENUE_MAPS_URL}
                 target="_blank"
                 rel="noopener noreferrer"
                 style={{ fontSize: '0.75rem', color: BLUE, textDecoration: 'none', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '3px' }}
@@ -601,15 +606,9 @@ export default function BookingPage({ user, initialCourtId, initialTab, onBack, 
                 Get Directions
               </a>
             </div>
-            <div style={{ height: '130px', background: 'linear-gradient(135deg, #DBEAFE 0%, #BFDBFE 50%, #93C5FD 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <div style={{ textAlign: 'center' }}>
-                <div style={{ width: '32px', height: '32px', borderRadius: '50%', backgroundColor: BLUE, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 6px' }}>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="white"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" /></svg>
-                </div>
-                <p style={{ fontSize: '0.72rem', color: '#1E3A8A', fontWeight: 600, margin: 0 }}>PickleBella Park</p>
-                <p style={{ fontSize: '0.65rem', color: '#6B7280', margin: '2px 0 0' }}>Jamison St., Isulan</p>
-              </div>
-            </div>
+            <Suspense fallback={<div style={{ height: '130px', backgroundColor: '#F3F4F6' }} />}>
+              <VenueMapCard height={130} />
+            </Suspense>
           </div>
         </div>
       </div>

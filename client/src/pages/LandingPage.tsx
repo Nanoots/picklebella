@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import logoImg from '@/imports/opt/logo.webp'
 import heroBadgeImg from '@/imports/opt/logo-hero.webp'
 import heroImg from '@/imports/opt/Court123.webp'
@@ -10,7 +10,12 @@ import { fmtHour, fmtMoney, todayStr } from '../lib/format'
 import { useAsync } from '../lib/useAsync'
 import { useIsMobile, useIsNarrow } from '../lib/useMediaQuery'
 import { ErrorBlock, LoadingBlock } from '../components/States'
+import { VENUE_MAPS_URL } from '../lib/venue'
 import { G_DARK, PINK, LIME, FONT_BODY, FONT_DISPLAY } from '../lib/theme'
+
+// maplibre-gl is heavy — loaded only once this card is actually rendered,
+// not folded into the landing page's initial bundle.
+const VenueMapCard = lazy(() => import('../components/VenueMap'))
 
 // Only the two full-color aerial shots of the actual venue — the per-court
 // spotlight images (Court1/2/3, used on the booking page to highlight which
@@ -457,14 +462,11 @@ export default function LandingPage({ user, onReserve, onSignIn, onSignOut, onAd
         <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
           <SectionHead kicker="Visit Us" title="Location & operating hours" />
           <div style={{ display: 'grid', gridTemplateColumns: isNarrow ? 'minmax(0,1fr)' : 'minmax(0,1.1fr) minmax(0,1fr)', gap: '2rem', alignItems: 'center' }}>
-            <a
-              href="https://www.google.com/maps/search/?api=1&query=6.628528,124.603528"
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{ height: isMobile ? '190px' : '260px', borderRadius: '18px', background: 'linear-gradient(135deg, #D1FAE5 0%, #A7F3D0 50%, #6EE7B7 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', textAlign: 'center', padding: '1.5rem', color: G_DARK, fontWeight: 600, fontSize: isMobile ? '0.85rem' : '1rem', lineHeight: 1.6, textDecoration: 'none' }}
-            >
-              📍 Jamison St., Isulan<br />Sultan Kudarat
-            </a>
+            <div style={{ borderRadius: '18px', overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
+              <Suspense fallback={<div style={{ height: isMobile ? 190 : 260, backgroundColor: '#F3F4F6' }} />}>
+                <VenueMapCard height={isMobile ? 190 : 260} />
+              </Suspense>
+            </div>
             <div>
               {venue.loading && <LoadingBlock label="Loading hours…" pad="1.5rem" />}
               {venue.error && <ErrorBlock message={venue.error} onRetry={venue.reload} pad="1.25rem" />}
@@ -514,7 +516,7 @@ export default function LandingPage({ user, onReserve, onSignIn, onSignOut, onAd
             {[
               { h: 'Explore', links: [['Courts', '#courts'], ['How it Works', '#how'], ['Amenities', '#amenities'], ['Book Now', '#']] },
               { h: 'Support', links: [['FAQs', '#'], ['Cancellation Policy', '#'], ['Contact Us', '#']] },
-              { h: 'Contact', links: [['Jamison St., Isulan, Sultan Kudarat', 'https://www.google.com/maps/search/?api=1&query=6.628528,124.603528'], ['(0917) 123-4567', 'tel:+639171234567'], ['hello@picklebella.ph', 'mailto:hello@picklebella.ph']] },
+              { h: 'Contact', links: [['Jamison St., Isulan, Sultan Kudarat', VENUE_MAPS_URL], ['(0917) 123-4567', 'tel:+639171234567'], ['hello@picklebella.ph', 'mailto:hello@picklebella.ph']] },
             ].map((col) => (
               <div key={col.h}>
                 <h4 style={{ color: 'white', fontSize: '0.85rem', fontWeight: 700, margin: '0 0 0.875rem' }}>{col.h}</h4>

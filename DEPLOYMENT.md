@@ -186,8 +186,12 @@ The CSP in `client/vercel.json` already names the live API and Supabase hosts,
 so nothing needs editing before this deploy:
 
 ```
-connect-src 'self' https://picklebella-server-eight.vercel.app https://nudbgiikbquoqeccjaxh.supabase.co
+connect-src 'self' https://picklebella-server-eight.vercel.app https://nudbgiikbquoqeccjaxh.supabase.co https://tiles.openfreemap.org
 ```
+
+(`tiles.openfreemap.org` is the venue map on the landing/booking pages — MapLibre GL fetches
+tile/style JSON over `fetch`, which CSP treats as `connect-src`, not `img-src`. It also spawns
+a Web Worker from a `blob:` URL, which is why `worker-src 'self' blob:` is in there too.)
 
 If the server ever moves to a different URL, this must be updated too or the
 browser will silently block every API call.
