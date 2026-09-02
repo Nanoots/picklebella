@@ -2,8 +2,21 @@ import { useState } from 'react'
 import { Eye, EyeOff } from 'lucide-react'
 import logoImg from '@/imports/opt/logo.webp'
 import type { User } from '../App'
-import { continueAsGuest, requestPasswordReset, signIn, signUp } from '../lib/auth'
+import { continueAsGuest, requestPasswordReset, signIn, signInWithGoogle, signUp } from '../lib/auth'
 import { G_DARK, G, PINK, FONT_BODY, FONT_DISPLAY } from '../lib/theme'
+
+/** The official Google "G" mark — not in lucide-react, which carries no
+ * brand logos. Colors are Google's fixed brand colors, not theme tokens. */
+function GoogleIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
+      <path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84c-.21 1.13-.84 2.09-1.79 2.73v2.27h2.9c1.7-1.56 2.69-3.87 2.69-6.64z" />
+      <path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.9-2.27c-.8.54-1.84.86-3.06.86-2.35 0-4.34-1.59-5.05-3.72H.98v2.34C2.46 15.98 5.48 18 9 18z" />
+      <path fill="#FBBC05" d="M3.95 10.69A5.4 5.4 0 0 1 3.66 9c0-.59.1-1.16.29-1.69V4.97H.98A9 9 0 0 0 0 9c0 1.45.35 2.83.98 4.03l2.97-2.34z" />
+      <path fill="#EA4335" d="M9 3.58c1.32 0 2.5.45 3.44 1.35l2.58-2.58C13.46.89 11.43 0 9 0 5.48 0 2.46 2.02.98 4.97l2.97 2.34C4.66 5.17 6.65 3.58 9 3.58z" />
+    </svg>
+  )
+}
 
 interface Props {
   onClose: () => void
@@ -109,7 +122,8 @@ export default function AuthModal({ onClose, onSuccess }: Props) {
   const [notice, setNotice] = useState('')
   const [loading, setLoading] = useState(false)
   const [guestLoading, setGuestLoading] = useState(false)
-  const busy = loading || guestLoading
+  const [googleLoading, setGoogleLoading] = useState(false)
+  const busy = loading || guestLoading || googleLoading
 
   function switchMode(m: 'signin' | 'signup' | 'forgot') {
     setMode(m)
@@ -171,6 +185,23 @@ export default function AuthModal({ onClose, onSuccess }: Props) {
       setError(err instanceof Error ? err.message : 'Something went wrong. Please try again.')
     } finally {
       setLoading(false)
+    }
+  }
+
+  async function handleGoogle() {
+    if (busy) return
+    setError('')
+    setNotice('')
+    setGoogleLoading(true)
+    try {
+      // Navigates away to Google on success — nothing left to do here. Only
+      // an immediate failure (e.g. the provider isn't configured) reaches
+      // the catch; a mid-flow cancel just returns the visitor to this page
+      // with no session, which onAuthChange in App.tsx already handles.
+      await signInWithGoogle()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not continue with Google. Please try again.')
+      setGoogleLoading(false)
     }
   }
 
@@ -264,6 +295,28 @@ export default function AuthModal({ onClose, onSuccess }: Props) {
             </>
           ) : (
             <>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => { void handleGoogle() }}
+                style={{
+                  width: '100%', padding: '0.85rem', borderRadius: '999px', marginBottom: '1.25rem',
+                  border: '1.5px solid #E5E7EB', backgroundColor: busy ? '#F9FAFB' : 'white',
+                  color: '#374151', fontSize: '0.92rem', fontWeight: 600, fontFamily: FONT_BODY,
+                  cursor: busy ? 'default' : 'pointer',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px',
+                }}
+              >
+                <GoogleIcon />
+                {googleLoading ? 'Redirecting…' : 'Continue with Google'}
+              </button>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.25rem' }}>
+                <div style={{ flex: 1, height: '1px', backgroundColor: '#F0F1F3' }} />
+                <span style={{ fontSize: '0.72rem', color: '#9CA3AF', fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase' }}>or</span>
+                <div style={{ flex: 1, height: '1px', backgroundColor: '#F0F1F3' }} />
+              </div>
+
               <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginBottom: mode === 'signin' ? '0.75rem' : '1.25rem' }}>
                 {mode === 'signup' ? (
                   <>

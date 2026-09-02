@@ -103,6 +103,24 @@ export async function signIn(identifier: string, password: string, remember = tr
 }
 
 /**
+ * Starts Google's OAuth sign-in/sign-up. There's no separate "sign up with
+ * Google" — the account is created automatically on first callback, same as
+ * clicking this while already registered just signs in. This navigates the
+ * whole page away to Google and back, so nothing about the outcome can be
+ * returned here; the redirect lands back on this same origin with a session
+ * already in the URL, which supabase-js's `detectSessionInUrl` picks up on
+ * its own (see supabaseClient.ts) — App.tsx's onAuthChange subscriber is what
+ * actually notices the new session, not a caller of this function.
+ */
+export async function signInWithGoogle(): Promise<void> {
+  const { error } = await supabase.auth.signInWithOAuth({
+    provider: 'google',
+    options: { redirectTo: window.location.origin + '/' },
+  })
+  if (error) throw new ApiError(error.message, error.status ?? 400, 'google_signin_failed')
+}
+
+/**
  * Anonymous sign-in for guest checkout: a real, if disposable, Supabase
  * session with no email, password, or personal information required. It
  * uses the `authenticated` role like any other account, so the booking and
