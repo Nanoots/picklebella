@@ -1,54 +1,73 @@
 /* =========================================================
    PickleBella Park — the interactive venue map.
 
-   Tiles come from OpenFreeMap (no API key, no usage cap — see
-   https://openfreemap.org), rendered client-side with MapLibre GL. Two
-   independent Map instances are used (mini card + fullscreen overlay)
-   rather than one moved between containers: WebGL contexts don't take
-   kindly to being reparented, and mounting a fresh one on open is simpler
-   and fast enough that the extra tile fetch isn't noticeable.
+   Uses Leaflet with CARTO's free raster tiles (no API key). Deliberately
+   NOT MapLibre GL / any vector-tile-and-WebGL renderer: that approach ran
+   into a real bundler gotcha (its worker script is loaded via a runtime
+   `import.meta.url`-relative URL that Vite's static analysis can't see, so
+   it never made it into the production build — see the fix history if this
+   ever needs revisiting) on top of being categorically harder to verify,
+   since WebGL rendering can't be screenshotted from this project's headless
+   test tooling. Leaflet draws tiles as plain `<img>` tags on a 2D canvas —
+   no worker, no WebGL, nothing that can silently fail to paint.
    ========================================================= */
 
-import { useEffect, useRef, useState, type RefObject } from 'react'
-import { Map as MapLibreMap, Marker, NavigationControl } from 'maplibre-gl'
-import 'maplibre-gl/dist/maplibre-gl.css'
+import { useEffect, useRef, useState } from 'react'
+import L from 'leaflet'
+import 'leaflet/dist/leaflet.css'
+import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png'
+import markerIcon from 'leaflet/dist/images/marker-icon.png'
+import markerShadow from 'leaflet/dist/images/marker-shadow.png'
 import { Maximize2, X } from 'lucide-react'
-import { BLUE, FONT_BODY, FONT_DISPLAY } from '../lib/theme'
+import { FONT_BODY, FONT_DISPLAY } from '../lib/theme'
 import { VENUE_COORDS, VENUE_ADDRESS } from '../lib/venue'
 
-const MAP_STYLE = 'https://tiles.openfreemap.org/styles/liberty'
+// The standard OSM tile server — CARTO's "free" basemaps (tried first) turned
+// out to gate on an API key now, watermarking every tile "API KEY REQUIRED"
+// for unregistered domains despite still returning 200s. This one needs no
+// key or signup.
+const TILE_URL = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'
+const TILE_ATTRIBUTION = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
 
-/** Mounts a MapLibre map with a pin at the venue into `containerRef`, and
- * tears it down on unmount. `interactive` gates panning/scroll-zoom/touch —
- * off for the card preview (a click there should open the fullscreen view,
- * not nudge the map), on for the fullscreen one. */
-function useVenueMap(containerRef: RefObject<HTMLDivElement | null>, opts: { interactive: boolean; zoom: number }) {
+// Leaflet's default marker icon URLs are relative to leaflet.css's own
+// location, which breaks once a bundler moves/hashes that file — pointing
+// it at the actual imported (and therefore correctly hashed) asset URLs
+// is the standard fix.
+const markerIconInstance = L.icon({
+  iconUrl: markerIcon,
+  iconRetinaUrl: markerIcon2x,
+  shadowUrl: markerShadow,
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+  popupAnchor: [1, -34],
+  shadowSize: [41, 41],
+})
+
+function useVenueMap(containerRef: React.RefObject<HTMLDivElement | null>, opts: { interactive: boolean; zoom: number }) {
   useEffect(() => {
     const container = containerRef.current
     if (!container) return
 
-    const map = new MapLibreMap({
-      container,
-      style: MAP_STYLE,
-      center: [VENUE_COORDS.lng, VENUE_COORDS.lat],
+    const map = L.map(container, {
+      center: [VENUE_COORDS.lat, VENUE_COORDS.lng],
       zoom: opts.zoom,
-      interactive: opts.interactive,
-      attributionControl: { compact: true },
+      // The default top-left position collides with FullscreenVenueMap's
+      // location label, which sits there too — added separately below at
+      // bottom-right instead, alongside the close button's own corner logic.
+      zoomControl: false,
+      dragging: opts.interactive,
+      scrollWheelZoom: opts.interactive,
+      doubleClickZoom: opts.interactive,
+      touchZoom: opts.interactive,
+      boxZoom: opts.interactive,
+      keyboard: opts.interactive,
+      attributionControl: true,
     })
-    new Marker({ color: BLUE }).setLngLat([VENUE_COORDS.lng, VENUE_COORDS.lat]).addTo(map)
-    if (opts.interactive) {
-      // bottom-right, not top-right — that's where the custom close button
-      // in FullscreenVenueMap sits, and MapLibre's own control would
-      // otherwise overlap it.
-      map.addControl(new NavigationControl({ showCompass: false }), 'bottom-right')
-    }
+    L.tileLayer(TILE_URL, { attribution: TILE_ATTRIBUTION, maxZoom: 20 }).addTo(map)
+    L.marker([VENUE_COORDS.lat, VENUE_COORDS.lng], { icon: markerIconInstance }).addTo(map)
+    if (opts.interactive) L.control.zoom({ position: 'bottomright' }).addTo(map)
 
-    // The card version starts at a size the flex/grid layout hasn't
-    // finished settling into yet on first paint; the fullscreen version's
-    // container only exists once the modal is already full-viewport, but
-    // resizing again after fonts/tiles finish costs nothing and guards
-    // against both.
-    const ro = new ResizeObserver(() => map.resize())
+    const ro = new ResizeObserver(() => map.invalidateSize())
     ro.observe(container)
 
     return () => {
@@ -59,8 +78,6 @@ function useVenueMap(containerRef: RefObject<HTMLDivElement | null>, opts: { int
   }, [])
 }
 
-/** Closes on Escape and locks background scroll while open — same pattern
- * as every other full-screen overlay in this app (AuthModal, admin modals). */
 function useModalEscapeAndScrollLock(active: boolean, onClose: () => void) {
   useEffect(() => {
     if (!active) return
@@ -93,7 +110,7 @@ function FullscreenVenueMap({ onClose }: { onClose: () => void }) {
           position: 'absolute', top: '1rem', right: '1rem', width: '2.75rem', height: '2.75rem',
           borderRadius: '50%', backgroundColor: 'white', border: 'none',
           boxShadow: '0 2px 12px rgba(0,0,0,0.28)', display: 'flex', alignItems: 'center',
-          justifyContent: 'center', cursor: 'pointer',
+          justifyContent: 'center', cursor: 'pointer', zIndex: 1000,
         }}
       >
         <X size={20} color="#111827" />
@@ -102,7 +119,8 @@ function FullscreenVenueMap({ onClose }: { onClose: () => void }) {
       <div
         style={{
           position: 'absolute', top: '1rem', left: '1rem', backgroundColor: 'white', borderRadius: '12px',
-          padding: '0.7rem 1rem', boxShadow: '0 2px 12px rgba(0,0,0,0.18)', fontFamily: FONT_BODY, maxWidth: 'calc(100vw - 6rem)',
+          padding: '0.7rem 1rem', boxShadow: '0 2px 12px rgba(0,0,0,0.18)', fontFamily: FONT_BODY,
+          maxWidth: 'calc(100vw - 6rem)', zIndex: 1000,
         }}
       >
         <p style={{ margin: 0, fontFamily: FONT_DISPLAY, fontWeight: 700, fontSize: '0.9rem', color: '#111827' }}>PickleBella Park</p>
@@ -113,12 +131,7 @@ function FullscreenVenueMap({ onClose }: { onClose: () => void }) {
 }
 
 /** Drop-in replacement for a static "map" placeholder: a small preview with
- * a pin, click/tap (or Enter/Space) to open the same map full-screen.
- *
- * Also the default export — maplibre-gl is a heavy (~250KB gzipped)
- * dependency, so every call site lazy-loads this via React.lazy() rather
- * than importing it eagerly, keeping it out of the landing page's initial
- * bundle. See LandingPage.tsx / BookingPage.tsx. */
+ * a pin, click/tap (or Enter/Space) to open the same map full-screen. */
 export function VenueMapCard({ height = 130 }: { height?: number }) {
   const [fullscreen, setFullscreen] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -139,7 +152,7 @@ export function VenueMapCard({ height = 130 }: { height?: number }) {
           style={{
             position: 'absolute', bottom: '8px', right: '8px', backgroundColor: 'white',
             borderRadius: '8px', padding: '5px', display: 'flex', alignItems: 'center',
-            boxShadow: '0 1px 5px rgba(0,0,0,0.2)', pointerEvents: 'none',
+            boxShadow: '0 1px 5px rgba(0,0,0,0.2)', pointerEvents: 'none', zIndex: 1000,
           }}
         >
           <Maximize2 size={13} color="#374151" />

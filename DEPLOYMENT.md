@@ -186,12 +186,17 @@ The CSP in `client/vercel.json` already names the live API and Supabase hosts,
 so nothing needs editing before this deploy:
 
 ```
-connect-src 'self' https://picklebella-server-eight.vercel.app https://nudbgiikbquoqeccjaxh.supabase.co https://tiles.openfreemap.org
+connect-src 'self' https://picklebella-server-eight.vercel.app https://nudbgiikbquoqeccjaxh.supabase.co
+img-src 'self' data: blob: https://*.paymongo.com https://*.tile.openstreetmap.org
 ```
 
-(`tiles.openfreemap.org` is the venue map on the landing/booking pages — MapLibre GL fetches
-tile/style JSON over `fetch`, which CSP treats as `connect-src`, not `img-src`. It also spawns
-a Web Worker from a `blob:` URL, which is why `worker-src 'self' blob:` is in there too.)
+(`*.tile.openstreetmap.org` is the venue map on the landing/booking pages — Leaflet loads
+tiles as plain `<img>` requests, which CSP treats as `img-src`, not `connect-src`. Two earlier
+attempts didn't make it: MapLibre GL + OpenFreeMap's vector tiles were dropped after the Web
+Worker script turned out to not survive Vite's production bundling, and CARTO's "free" raster
+basemaps turned out to require registering a domain/API key, watermarking every tile "API KEY
+REQUIRED" otherwise. See the "maplibre-gl worker fix" project memory if any of this needs
+revisiting.)
 
 If the server ever moves to a different URL, this must be updated too or the
 browser will silently block every API call.
