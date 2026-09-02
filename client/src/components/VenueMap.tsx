@@ -63,6 +63,16 @@ function useVenueMap(containerRef: React.RefObject<HTMLDivElement | null>, opts:
       keyboard: opts.interactive,
       attributionControl: true,
     })
+    if (!opts.interactive) {
+      // Belt and suspenders on top of the constructor options above — every
+      // interaction handler disabled explicitly, not just via the options.
+      map.dragging.disable()
+      map.touchZoom.disable()
+      map.doubleClickZoom.disable()
+      map.scrollWheelZoom.disable()
+      map.boxZoom.disable()
+      map.keyboard.disable()
+    }
     L.tileLayer(TILE_URL, { attribution: TILE_ATTRIBUTION, maxZoom: 20 }).addTo(map)
     L.marker([VENUE_COORDS.lat, VENUE_COORDS.lng], { icon: markerIconInstance }).addTo(map)
     if (opts.interactive) L.control.zoom({ position: 'bottomright' }).addTo(map)
@@ -145,9 +155,29 @@ export function VenueMapCard({ height = 130 }: { height?: number }) {
         role="button"
         tabIndex={0}
         aria-label="Open full-screen map"
-        style={{ height, position: 'relative', cursor: 'pointer' }}
+        style={{
+          height, position: 'relative', cursor: 'pointer',
+          // `position: relative` alone doesn't create a new stacking
+          // context — an explicit z-index does. Without one, Leaflet's own
+          // internal panes (it uses z-index up to 700 for markers/popups,
+          // meant to stay local to its own container) compare directly
+          // against page-level z-indices, including the fullscreen
+          // overlay's — which is how this card's pin ended up visually
+          // painting on top of a fullscreen view it's sitting behind.
+          zIndex: 0,
+          // Hidden rather than unmounted while fullscreen is open: keeps
+          // the same Leaflet instance alive (no reinitialization cost) but
+          // guarantees nothing here can paint over the overlay, belt and
+          // suspenders on top of the stacking-context fix above.
+          visibility: fullscreen ? 'hidden' : 'visible',
+        }}
       >
-        <div ref={containerRef} style={{ width: '100%', height: '100%' }} />
+        {/* Leaflet attaches its own pointer/touch handlers straight to this
+            element; even with every interaction handler disabled above,
+            routing all pointer events to the wrapping div instead is what
+            actually guarantees a click here can only ever open the
+            full-screen view, never begin a drag. */}
+        <div ref={containerRef} style={{ width: '100%', height: '100%', pointerEvents: 'none' }} />
         <span
           style={{
             position: 'absolute', bottom: '8px', right: '8px', backgroundColor: 'white',
