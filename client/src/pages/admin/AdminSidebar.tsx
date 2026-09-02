@@ -2,7 +2,7 @@ import { LayoutDashboard, Building2, CalendarCheck, SlidersHorizontal, Users, Ta
 import logoImg from '@/imports/opt/logo.webp'
 import { G_DARK, G, LIME, FONT_BODY, FONT_DISPLAY } from '../../lib/theme'
 import { useIsNarrow } from '../../lib/useMediaQuery'
-import { useAdminColors } from './adminTheme'
+import { useAdminColors, useAdminTheme } from './adminTheme'
 import type { AdminSection } from './types'
 
 const NAV_ITEMS: { key: AdminSection; label: string; icon: typeof LayoutDashboard }[] = [
@@ -26,6 +26,7 @@ interface Props {
 export default function AdminSidebar({ section, onSelect, onLogout, open, onClose }: Props) {
   const isNarrow = useIsNarrow()
   const colors = useAdminColors()
+  const { dark } = useAdminTheme()
 
   function selectAndClose(s: AdminSection) {
     onSelect(s)
@@ -81,8 +82,12 @@ export default function AdminSidebar({ section, onSelect, onLogout, open, onClos
                 style={{
                   display: 'flex', alignItems: 'center', gap: '10px',
                   padding: '0.65rem 0.75rem', borderRadius: '10px', border: 'none',
-                  backgroundColor: active ? 'rgba(122,194,49,0.14)' : 'transparent',
-                  color: active ? G : colors.textSoft,
+                  // The light-mode pill (dark-green text on a faint lime
+                  // tint) reads fine on a white sidebar, but that same dark
+                  // green text is nearly invisible against a dark sidebar —
+                  // dark mode gets brighter lime text on a more visible tint.
+                  backgroundColor: active ? (dark ? 'rgba(122,194,49,0.22)' : 'rgba(122,194,49,0.14)') : 'transparent',
+                  color: active ? (dark ? LIME : G) : colors.textSoft,
                   fontFamily: FONT_BODY, fontSize: '0.85rem', fontWeight: active ? 700 : 500,
                   cursor: 'pointer', textAlign: 'left', width: '100%',
                   borderLeft: active ? `3px solid ${LIME}` : '3px solid transparent',
