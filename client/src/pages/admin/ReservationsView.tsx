@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Plus } from 'lucide-react'
+import { Plus, Search } from 'lucide-react'
 import * as api from '../../lib/api'
 import type { AvailabilityResponse } from '../../lib/api'
 import type { Booking, Court } from '../../lib/types'
@@ -21,6 +21,7 @@ export default function ReservationsView({ bookings, courts, refresh, showToast 
   const [courtFilter, setCourtFilter] = useState('all')
   const [statusFilter, setStatusFilter] = useState('all')
   const [dateFilter, setDateFilter] = useState('')
+  const [search, setSearch] = useState('')
   const [pendingCancelId, setPendingCancelId] = useState<string | null>(null)
   const [adding, setAdding] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -50,6 +51,15 @@ export default function ReservationsView({ bookings, courts, refresh, showToast 
   if (courtFilter !== 'all') filtered = filtered.filter((b) => b.courtId === courtFilter)
   if (statusFilter !== 'all') filtered = filtered.filter((b) => b.status === statusFilter)
   if (dateFilter) filtered = filtered.filter((b) => b.date === dateFilter)
+  const q = search.trim().toLowerCase()
+  if (q) {
+    filtered = filtered.filter((b) =>
+      b.name.toLowerCase().includes(q) ||
+      b.phone.toLowerCase().includes(q) ||
+      b.email.toLowerCase().includes(q) ||
+      b.id.toLowerCase().includes(q),
+    )
+  }
 
   return (
     <>
@@ -58,6 +68,17 @@ export default function ReservationsView({ bookings, courts, refresh, showToast 
         subtitle={`${filtered.length} booking${filtered.length === 1 ? '' : 's'}`}
         action={
           <div className="flex items-center gap-2 flex-wrap">
+            <div className="relative">
+              <Search size={14} className="absolute top-1/2 -translate-y-1/2 text-gray-400" style={{ left: '9px' }} />
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search name, phone, email, ref…"
+                className="text-sm border border-gray-200 rounded-lg py-1.5"
+                style={{ paddingLeft: '30px', paddingRight: '10px', width: '210px' }}
+              />
+            </div>
             <select value={courtFilter} onChange={(e) => setCourtFilter(e.target.value)} className="text-sm border border-gray-200 rounded-lg px-2.5 py-1.5">
               <option value="all">All Courts</option>
               {courts.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
@@ -68,7 +89,7 @@ export default function ReservationsView({ bookings, courts, refresh, showToast 
               <option value="cancelled">Cancelled</option>
             </select>
             <input type="date" value={dateFilter} onChange={(e) => setDateFilter(e.target.value)} className="text-sm border border-gray-200 rounded-lg px-2.5 py-1.5" />
-            <button onClick={() => { setCourtFilter('all'); setStatusFilter('all'); setDateFilter('') }} className="text-sm text-gray-500 bg-transparent border-none cursor-pointer">Clear</button>
+            <button onClick={() => { setCourtFilter('all'); setStatusFilter('all'); setDateFilter(''); setSearch('') }} className="text-sm text-gray-500 bg-transparent border-none cursor-pointer">Clear</button>
             <button
               onClick={() => setAdding(true)}
               style={{ display: 'flex', alignItems: 'center', gap: '5px', backgroundColor: G_DARK, color: 'white', border: 'none', borderRadius: '999px', padding: '0.4rem 0.9rem', fontSize: '0.8rem', fontWeight: 700, cursor: 'pointer', fontFamily: FONT_BODY }}
@@ -301,7 +322,7 @@ function ManualBookingModal({ courts, onClose, onSaved, showToast }: {
           </div>
         </div>
 
-        <div style={{ backgroundColor: '#F9FAFB', borderRadius: '10px', padding: '0.75rem 1rem', marginBottom: '1.25rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div style={{ backgroundColor: 'var(--pb-hover-bg)', borderRadius: '10px', padding: '0.75rem 1rem', marginBottom: '1.25rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <span className="text-sm font-semibold text-gray-700">Total</span>
           <span style={{ fontFamily: FONT_DISPLAY }} className="text-lg font-extrabold text-gray-900">{fmtMoney(amount)}</span>
         </div>

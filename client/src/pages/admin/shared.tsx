@@ -1,6 +1,9 @@
+import type { ComponentType } from 'react'
 import type { Booking } from '../../lib/types'
 import { getPaymentMethod } from '../../lib/paymentMethods'
 import { FONT_DISPLAY, FONT_BODY } from '../../lib/theme'
+import { useIsMobile } from '../../lib/useMediaQuery'
+import { useAdminColors } from './adminTheme'
 
 export function Toast({ message }: { message: string }) {
   return (
@@ -10,12 +13,44 @@ export function Toast({ message }: { message: string }) {
   )
 }
 
-export function StatCard({ label, value, sub, accent }: { label: string; value: string | number; sub: string; accent?: string }) {
+export function StatCard({
+  label, value, sub, accent, icon: Icon,
+}: {
+  label: string
+  value: string | number
+  sub: string
+  /** Colours both the value and the icon chip — pick one per card so the row
+   * reads as distinct metrics at a glance rather than one undifferentiated
+   * block of numbers. */
+  accent?: string
+  icon?: ComponentType<{ size?: number; strokeWidth?: number }>
+}) {
+  const colors = useAdminColors()
+  const isMobile = useIsMobile()
   return (
-    <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
-      <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider m-0">{label}</p>
-      <p className="text-2xl font-extrabold m-0 mt-1" style={{ fontFamily: FONT_DISPLAY, color: accent ?? '#111827' }}>{value}</p>
-      <p className="text-xs text-gray-400 m-0 mt-0.5">{sub}</p>
+    <div
+      className="bg-white rounded-2xl shadow-sm border border-gray-100"
+      style={{ display: 'flex', flexDirection: 'column', gap: isMobile ? '0.4rem' : '0.6rem', padding: isMobile ? '0.85rem' : '1.25rem' }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem' }}>
+        <p className="font-semibold text-gray-400 uppercase tracking-wider m-0" style={{ minWidth: 0, fontSize: isMobile ? '0.62rem' : '0.75rem' }}>{label}</p>
+        {Icon && (
+          <span
+            style={{
+              width: isMobile ? '1.6rem' : '2rem', height: isMobile ? '1.6rem' : '2rem', borderRadius: '50%', flexShrink: 0,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              backgroundColor: accent ? `${accent}1F` : colors.borderSoft,
+              color: accent ?? colors.textFaint,
+            }}
+          >
+            <Icon size={isMobile ? 13 : 16} strokeWidth={2.4} />
+          </span>
+        )}
+      </div>
+      <div>
+        <p className="font-extrabold m-0" style={{ fontFamily: FONT_DISPLAY, color: accent ?? colors.text, fontSize: isMobile ? '1.3rem' : '1.5rem' }}>{value}</p>
+        <p className="text-gray-400 m-0 mt-0.5" style={{ fontSize: isMobile ? '0.68rem' : '0.75rem' }}>{sub}</p>
+      </div>
     </div>
   )
 }

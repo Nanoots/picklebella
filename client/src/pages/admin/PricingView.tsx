@@ -156,7 +156,7 @@ export default function PricingView({ courts, refresh, showToast }: Props) {
             })}
           </div>
 
-          <div style={{ backgroundColor: '#F9FAFB', borderRadius: '10px', padding: '0.875rem 1rem' }}>
+          <div style={{ backgroundColor: 'var(--pb-hover-bg)', borderRadius: '10px', padding: '0.875rem 1rem' }}>
             <p className="text-xs text-gray-500 m-0">
               Example on a {fmtMoney(sampleRate)}/hr court —{' '}
               <strong className="text-gray-800">off-peak {fmtMoney(sampleRate)}</strong>,{' '}

@@ -1,6 +1,7 @@
+import { CalendarCheck, CalendarClock, Wallet } from 'lucide-react'
 import type { Booking, Block, Court } from '../../lib/types'
 import { fmtDate, fmtHour, fmtMoney, todayStr, toLocalDateStr } from '../../lib/format'
-import { G } from '../../lib/theme'
+import { useIsMobile } from '../../lib/useMediaQuery'
 import { StatCard, StatusBadge, SectionCard } from './shared'
 import { AreaChart, VIZ } from './charts'
 
@@ -29,6 +30,7 @@ function last14DaysRevenue(bookings: Booking[]) {
 }
 
 export default function DashboardView({ bookings, blocks, courts }: Props) {
+  const isMobile = useIsMobile()
   const courtFor = (id: string) => courts.find((c) => c.id === id)
   const today = todayStr()
   const todays = bookings.filter((b) => b.date === today && b.status === 'paid')
@@ -40,10 +42,18 @@ export default function DashboardView({ bookings, blocks, courts }: Props) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-      <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
-        <StatCard label="Today's Bookings" value={todays.length} sub={`for ${fmtDate(today)}`} />
-        <StatCard label="Upcoming Bookings" value={upcoming.length} sub="paid & active" />
-        <StatCard label="Total Revenue" value={fmtMoney(revenue)} sub="all paid bookings" accent={G} />
+      <div
+        className="grid"
+        style={{
+          gap: isMobile ? '0.6rem' : '1rem',
+          gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(auto-fit, minmax(200px, 1fr))',
+        }}
+      >
+        <StatCard label="Today's Bookings" value={todays.length} sub={`for ${fmtDate(today)}`} accent={VIZ.blue} icon={CalendarCheck} />
+        <StatCard label="Upcoming Bookings" value={upcoming.length} sub="paid & active" accent={VIZ.pink} icon={CalendarClock} />
+        <div style={isMobile ? { gridColumn: '1 / -1' } : undefined}>
+          <StatCard label="Total Revenue" value={fmtMoney(revenue)} sub="all paid bookings" accent={VIZ.green} icon={Wallet} />
+        </div>
       </div>
 
       <SectionCard title="Revenue — last 14 days" subtitle="Paid court revenue by day">

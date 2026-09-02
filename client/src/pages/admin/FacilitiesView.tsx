@@ -19,7 +19,7 @@ interface Props {
 
 const inputStyle: React.CSSProperties = {
   width: '100%', padding: '0.5rem 0.7rem', borderRadius: '8px',
-  border: '1.5px solid #E5E7EB', fontSize: '0.85rem', fontFamily: FONT_BODY, boxSizing: 'border-box',
+  border: '1.5px solid var(--pb-border)', fontSize: '0.85rem', fontFamily: FONT_BODY, boxSizing: 'border-box',
 }
 
 function CourtForm({ court, onSave, onCancel }: { court: Court; onSave: (c: Court) => void; onCancel: () => void }) {
@@ -49,36 +49,36 @@ function CourtForm({ court, onSave, onCancel }: { court: Court; onSave: (c: Cour
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
       <div>
-        <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 600, color: '#374151', marginBottom: '3px' }}>Court name</label>
+        <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 600, color: 'var(--pb-text-soft)', marginBottom: '3px' }}>Court name</label>
         <input value={name} onChange={(e) => setName(e.target.value)} style={inputStyle} />
       </div>
       <div style={{ display: 'flex', gap: '0.5rem' }}>
         <div style={{ flex: 1 }}>
-          <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 600, color: '#374151', marginBottom: '3px' }}>Type</label>
+          <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 600, color: 'var(--pb-text-soft)', marginBottom: '3px' }}>Type</label>
           <select value={type} onChange={(e) => setType(e.target.value as Court['type'])} style={inputStyle}>
             <option value="Indoor">Indoor</option>
             <option value="Outdoor">Outdoor</option>
           </select>
         </div>
         <div style={{ flex: 1 }}>
-          <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 600, color: '#374151', marginBottom: '3px' }}>Base rate (₱/hr)</label>
+          <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 600, color: 'var(--pb-text-soft)', marginBottom: '3px' }}>Base rate (₱/hr)</label>
           <input type="number" value={rate} onChange={(e) => setRate(e.target.value)} style={inputStyle} />
         </div>
       </div>
       <div>
-        <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 600, color: '#374151', marginBottom: '3px' }}>Surface</label>
+        <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 600, color: 'var(--pb-text-soft)', marginBottom: '3px' }}>Surface</label>
         <input value={surface} onChange={(e) => setSurface(e.target.value)} style={inputStyle} />
       </div>
       <div>
-        <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 600, color: '#374151', marginBottom: '3px' }}>Features (comma-separated)</label>
+        <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 600, color: 'var(--pb-text-soft)', marginBottom: '3px' }}>Features (comma-separated)</label>
         <input value={feats} onChange={(e) => setFeats(e.target.value)} style={inputStyle} />
       </div>
       <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
-        <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem', color: '#374151', cursor: 'pointer' }}>
+        <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem', color: 'var(--pb-text-soft)', cursor: 'pointer' }}>
           <input type="checkbox" checked={lighting} onChange={(e) => setLighting(e.target.checked)} />
           Night lighting
         </label>
-        <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem', color: '#374151', cursor: 'pointer' }}>
+        <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem', color: 'var(--pb-text-soft)', cursor: 'pointer' }}>
           <input type="checkbox" checked={active} onChange={(e) => setActive(e.target.checked)} />
           Bookable by customers
         </label>
@@ -87,7 +87,7 @@ function CourtForm({ court, onSave, onCancel }: { court: Court; onSave: (c: Cour
         <button onClick={submit} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px', backgroundColor: G, color: 'white', border: 'none', borderRadius: '999px', padding: '0.5rem', fontSize: '0.8rem', fontWeight: 700, cursor: 'pointer', fontFamily: FONT_BODY }}>
           <Check size={14} /> Save
         </button>
-        <button onClick={onCancel} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px', backgroundColor: 'white', color: '#6B7280', border: '1px solid #E5E7EB', borderRadius: '999px', padding: '0.5rem', fontSize: '0.8rem', fontWeight: 700, cursor: 'pointer', fontFamily: FONT_BODY }}>
+        <button onClick={onCancel} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px', backgroundColor: 'var(--pb-card)', color: 'var(--pb-text-faint)', border: '1px solid var(--pb-border)', borderRadius: '999px', padding: '0.5rem', fontSize: '0.8rem', fontWeight: 700, cursor: 'pointer', fontFamily: FONT_BODY }}>
           <X size={14} /> Cancel
         </button>
       </div>
@@ -139,7 +139,7 @@ function CourtCard({ court, hasBookings, refresh, showToast }: {
   }
 
   return (
-    <div style={{ backgroundColor: 'white', borderRadius: '18px', overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.06)', border: '1px solid #F3F4F6', opacity: court.active ? 1 : 0.65 }}>
+    <div style={{ backgroundColor: 'var(--pb-card)', borderRadius: '18px', overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.06)', border: '1px solid var(--pb-border-soft)', opacity: court.active ? 1 : 0.65 }}>
       <div style={{ background: court.color, height: '110px', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <span style={{ position: 'absolute', top: '0.75rem', left: '0.75rem', backgroundColor: 'rgba(255,255,255,0.18)', color: 'white', fontSize: '0.62rem', fontWeight: 700, padding: '3px 9px', borderRadius: '999px', textTransform: 'uppercase' }}>{court.type}</span>
         <span style={{ fontSize: '2.2rem' }}>{court.emoji}</span>
@@ -162,11 +162,11 @@ function CourtCard({ court, hasBookings, refresh, showToast }: {
           <CourtForm court={court} onSave={handleSave} onCancel={() => setEditing(false)} />
         ) : (
           <>
-            <h3 style={{ fontFamily: FONT_DISPLAY, fontSize: '1.05rem', fontWeight: 700, color: '#111827', margin: '0 0 0.2rem' }}>{court.name}</h3>
-            <p style={{ color: '#9CA3AF', fontSize: '0.78rem', margin: '0 0 0.75rem' }}>{court.surface}</p>
+            <h3 style={{ fontFamily: FONT_DISPLAY, fontSize: '1.05rem', fontWeight: 700, color: 'var(--pb-text)', margin: '0 0 0.2rem' }}>{court.name}</h3>
+            <p style={{ color: 'var(--pb-text-muted)', fontSize: '0.78rem', margin: '0 0 0.75rem' }}>{court.surface}</p>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', marginBottom: '0.9rem' }}>
               {court.feats.map((f) => (
-                <span key={f} style={{ backgroundColor: '#F3F4F6', color: '#374151', fontSize: '0.68rem', fontWeight: 500, padding: '3px 9px', borderRadius: '999px' }}>{f}</span>
+                <span key={f} style={{ backgroundColor: 'var(--pb-border-soft)', color: 'var(--pb-text-soft)', fontSize: '0.68rem', fontWeight: 500, padding: '3px 9px', borderRadius: '999px' }}>{f}</span>
               ))}
               {court.lighting && (
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', backgroundColor: '#FEF9C3', color: '#854D0E', fontSize: '0.68rem', fontWeight: 600, padding: '3px 9px', borderRadius: '999px' }}>
@@ -175,8 +175,8 @@ function CourtCard({ court, hasBookings, refresh, showToast }: {
               )}
             </div>
             <p style={{ margin: 0, display: 'flex', alignItems: 'baseline', gap: '4px' }}>
-              <span style={{ fontFamily: FONT_DISPLAY, fontSize: '1.2rem', fontWeight: 800, color: G_DARK }}>{fmtMoney(court.rate)}</span>
-              <span style={{ fontSize: '0.75rem', color: '#9CA3AF' }}>/ hour</span>
+              <span style={{ fontFamily: FONT_DISPLAY, fontSize: '1.2rem', fontWeight: 800, color: 'var(--pb-brand)' }}>{fmtMoney(court.rate)}</span>
+              <span style={{ fontSize: '0.75rem', color: 'var(--pb-text-muted)' }}>/ hour</span>
             </p>
           </>
         )}
@@ -359,7 +359,7 @@ function HoursSection({ hourOptions, showToast, refresh }: {
           {cfg.holidays.length === 0 && <div className="text-center text-gray-400 text-sm py-6">No special hours set.</div>}
         </div>
 
-        <div style={{ borderTop: '1px solid #F3F4F6', paddingTop: '1rem', display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'flex-end' }}>
+        <div style={{ borderTop: '1px solid var(--pb-border-soft)', paddingTop: '1rem', display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'flex-end' }}>
           <div>
             <label className="block text-xs font-semibold text-gray-700 mb-1">Date</label>
             <input type="date" value={newHoliday.date} onChange={(e) => setNewHoliday({ ...newHoliday, date: e.target.value })} className="text-sm border border-gray-200 rounded-lg px-2.5 py-1.5" />

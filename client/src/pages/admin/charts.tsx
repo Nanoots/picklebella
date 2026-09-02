@@ -28,15 +28,35 @@
 
 import { useLayoutEffect, useRef, useState } from 'react'
 import { FONT_BODY } from '../../lib/theme'
+import { useAdminTheme } from './adminTheme'
 
 /* ---------------- Tokens ---------------- */
 
-/** Chart surface. The admin shell is white; these charts are light-mode only. */
-const SURFACE = '#FFFFFF'
-const GRID = '#EDEFEC'
-const TEXT_PRIMARY = '#111827'
-const TEXT_SECONDARY = '#6B7280'
-const TEXT_MUTED = '#9CA3AF'
+/** Chart surface tokens, light and dark. Each chart component reads the
+ * right set via useChartColors() rather than a module-level constant, since
+ * the admin shell itself now switches themes (see adminTheme.tsx). */
+const LIGHT_TOKENS = {
+  surface: '#FFFFFF',
+  grid: '#EDEFEC',
+  gridFaint: '#F7F8F6',
+  textPrimary: '#111827',
+  textSecondary: '#6B7280',
+  textMuted: '#9CA3AF',
+}
+
+const DARK_TOKENS = {
+  surface: '#1A1F26',
+  grid: '#2E3440',
+  gridFaint: '#262B33',
+  textPrimary: '#F3F4F6',
+  textSecondary: '#9CA3AF',
+  textMuted: '#7B8494',
+}
+
+function useChartColors() {
+  const { dark } = useAdminTheme()
+  return dark ? DARK_TOKENS : LIGHT_TOKENS
+}
 
 /**
  * Series hues, validated as a categorical set against a light surface
@@ -149,11 +169,12 @@ function useElementWidth(): [React.RefObject<HTMLDivElement | null>, number] {
 export type Point = { label: string; value: number }
 
 function EmptyState({ height, message }: { height: number; message: string }) {
+  const c = useChartColors()
   return (
     <div
       style={{
         height, display: 'flex', alignItems: 'center', justifyContent: 'center',
-        color: TEXT_MUTED, fontSize: '0.82rem', fontFamily: FONT_BODY,
+        color: c.textMuted, fontSize: '0.82rem', fontFamily: FONT_BODY,
       }}
     >
       {message}
@@ -175,15 +196,16 @@ function TableView({
   categoryHeading: string
   valueHeading: string
 }) {
+  const c = useChartColors()
   return (
     <div style={{ maxHeight: '260px', overflowY: 'auto', marginTop: '0.75rem' }}>
       <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: FONT_BODY, fontSize: '0.8rem' }}>
         <thead>
           <tr>
-            <th style={{ textAlign: 'left', padding: '0.4rem 0', color: TEXT_SECONDARY, fontWeight: 600, borderBottom: `1px solid ${GRID}` }}>
+            <th style={{ textAlign: 'left', padding: '0.4rem 0', color: c.textSecondary, fontWeight: 600, borderBottom: `1px solid ${c.grid}` }}>
               {categoryHeading}
             </th>
-            <th style={{ textAlign: 'right', padding: '0.4rem 0', color: TEXT_SECONDARY, fontWeight: 600, borderBottom: `1px solid ${GRID}` }}>
+            <th style={{ textAlign: 'right', padding: '0.4rem 0', color: c.textSecondary, fontWeight: 600, borderBottom: `1px solid ${c.grid}` }}>
               {valueHeading}
             </th>
           </tr>
@@ -191,8 +213,8 @@ function TableView({
         <tbody>
           {data.map((d, i) => (
             <tr key={`${d.label}-${i}`}>
-              <td style={{ padding: '0.35rem 0', color: TEXT_SECONDARY, borderBottom: `1px solid #F7F8F6` }}>{d.label}</td>
-              <td style={{ padding: '0.35rem 0', textAlign: 'right', color: TEXT_PRIMARY, fontWeight: 600, borderBottom: `1px solid #F7F8F6`, fontVariantNumeric: 'tabular-nums' }}>
+              <td style={{ padding: '0.35rem 0', color: c.textSecondary, borderBottom: `1px solid ${c.gridFaint}` }}>{d.label}</td>
+              <td style={{ padding: '0.35rem 0', textAlign: 'right', color: c.textPrimary, fontWeight: 600, borderBottom: `1px solid ${c.gridFaint}`, fontVariantNumeric: 'tabular-nums' }}>
                 {valueFormatter(d.value)}
               </td>
             </tr>
@@ -204,6 +226,7 @@ function TableView({
 }
 
 function TableToggle({ open, onToggle }: { open: boolean; onToggle: () => void }) {
+  const c = useChartColors()
   return (
     <button
       type="button"
@@ -211,7 +234,7 @@ function TableToggle({ open, onToggle }: { open: boolean; onToggle: () => void }
       aria-expanded={open}
       style={{
         background: 'none', border: 'none', padding: '0.35rem 0 0', cursor: 'pointer',
-        fontFamily: FONT_BODY, fontSize: '0.72rem', fontWeight: 600, color: TEXT_MUTED,
+        fontFamily: FONT_BODY, fontSize: '0.72rem', fontWeight: 600, color: c.textMuted,
       }}
     >
       {open ? 'Hide data table' : 'View as table'}
@@ -273,6 +296,7 @@ export function AreaChart<T extends Point>({
   valueHeading = 'Value',
   emptyMessage = 'No data for this period.',
 }: AreaChartProps<T>) {
+  const c = useChartColors()
   const [wrapRef, width] = useElementWidth()
   const [hover, setHover] = useState<number | null>(null)
   const [showTable, setShowTable] = useState(false)
@@ -322,8 +346,8 @@ export function AreaChart<T extends Point>({
           >
             {ticks.map((t, i) => (
               <g key={i}>
-                <line x1={padL} x2={width - padR} y1={y(t)} y2={y(t)} stroke={GRID} strokeWidth={1} shapeRendering="crispEdges" />
-                <text x={padL - 10} y={y(t)} textAnchor="end" dominantBaseline="middle" fontSize={11} fill={TEXT_MUTED}>
+                <line x1={padL} x2={width - padR} y1={y(t)} y2={y(t)} stroke={c.grid} strokeWidth={1} shapeRendering="crispEdges" />
+                <text x={padL - 10} y={y(t)} textAnchor="end" dominantBaseline="middle" fontSize={11} fill={c.textMuted}>
                   {formatTick(t)}
                 </text>
               </g>
@@ -339,7 +363,7 @@ export function AreaChart<T extends Point>({
                 y={height - 7}
                 textAnchor={i === 0 ? 'start' : i === lastIdx ? 'end' : 'middle'}
                 fontSize={11}
-                fill={TEXT_MUTED}
+                fill={c.textMuted}
               >
                 {d.label}
               </text>
@@ -348,7 +372,7 @@ export function AreaChart<T extends Point>({
             {hover !== null && hovered && (
               <>
                 <line x1={x(hover)} x2={x(hover)} y1={padT} y2={padT + plotH} stroke={color} strokeWidth={1} opacity={0.35} shapeRendering="crispEdges" />
-                <circle cx={x(hover)} cy={y(hovered.value)} r={5} fill={color} stroke={SURFACE} strokeWidth={2} />
+                <circle cx={x(hover)} cy={y(hovered.value)} r={5} fill={color} stroke={c.surface} strokeWidth={2} />
               </>
             )}
 
@@ -356,7 +380,7 @@ export function AreaChart<T extends Point>({
                 figure a reader looks for, and labelling every point would be
                 unreadable noise. */}
             {hover === null && (
-              <circle cx={x(lastIdx)} cy={y(data[lastIdx]!.value)} r={4.5} fill={color} stroke={SURFACE} strokeWidth={2} />
+              <circle cx={x(lastIdx)} cy={y(data[lastIdx]!.value)} r={4.5} fill={color} stroke={c.surface} strokeWidth={2} />
             )}
 
             {/* Keyboard equivalent of hovering, one stop per point. */}
@@ -422,6 +446,7 @@ export function ColumnChart({
   valueHeading = 'Value',
   emptyMessage = 'Nothing to show for this period.',
 }: ColumnChartProps) {
+  const c = useChartColors()
   const [wrapRef, width] = useElementWidth()
   const [hover, setHover] = useState<number | null>(null)
   const [showTable, setShowTable] = useState(false)
@@ -457,8 +482,8 @@ export function ColumnChart({
           <svg width={width} height={height} role="img" aria-label={`${valueHeading} by ${categoryHeading.toLowerCase()}`} style={{ display: 'block' }}>
             {ticks.map((t, i) => (
               <g key={i}>
-                <line x1={padL} x2={width - padR} y1={y(t)} y2={y(t)} stroke={GRID} strokeWidth={1} shapeRendering="crispEdges" />
-                <text x={padL - 10} y={y(t)} textAnchor="end" dominantBaseline="middle" fontSize={11} fill={TEXT_MUTED}>
+                <line x1={padL} x2={width - padR} y1={y(t)} y2={y(t)} stroke={c.grid} strokeWidth={1} shapeRendering="crispEdges" />
+                <text x={padL - 10} y={y(t)} textAnchor="end" dominantBaseline="middle" fontSize={11} fill={c.textMuted}>
                   {formatTick(t)}
                 </text>
               </g>
@@ -484,7 +509,7 @@ export function ColumnChart({
                   {path && <path d={path} fill={color} opacity={isHover ? 1 : 0.88} />}
 
                   {i === peakIdx && barH > 14 && (
-                    <text x={cx} y={y(d.value) - 7} textAnchor="middle" fontSize={11} fontWeight={700} fill={TEXT_SECONDARY}>
+                    <text x={cx} y={y(d.value) - 7} textAnchor="middle" fontSize={11} fontWeight={700} fill={c.textSecondary}>
                       {valueFormatter(d.value)}
                     </text>
                   )}
@@ -495,7 +520,7 @@ export function ColumnChart({
                       y={height - 7}
                       textAnchor={i === 0 ? 'start' : i === n - 1 ? 'end' : 'middle'}
                       fontSize={11}
-                      fill={TEXT_MUTED}
+                      fill={c.textMuted}
                     >
                       {d.label}
                     </text>
@@ -567,6 +592,7 @@ export function HBarChart({
   valueHeading = 'Value',
   emptyMessage = 'Nothing to show for this period.',
 }: HBarChartProps) {
+  const c = useChartColors()
   const [wrapRef, width] = useElementWidth()
   const [hover, setHover] = useState<number | null>(null)
   const [showTable, setShowTable] = useState(false)
@@ -604,7 +630,7 @@ export function HBarChart({
 
               return (
                 <g key={`${d.label}-${i}`}>
-                  <text x={0} y={cy} dominantBaseline="middle" fontSize={12} fill={TEXT_SECONDARY}>
+                  <text x={0} y={cy} dominantBaseline="middle" fontSize={12} fill={c.textSecondary}>
                     {d.label.length > 17 ? d.label.slice(0, 16) + '…' : d.label}
                   </text>
 
@@ -618,7 +644,7 @@ export function HBarChart({
                     dominantBaseline="middle"
                     fontSize={12}
                     fontWeight={700}
-                    fill={TEXT_PRIMARY}
+                    fill={c.textPrimary}
                     style={{ fontVariantNumeric: 'tabular-nums' }}
                   >
                     {valueFormatter(d.value)}
@@ -667,6 +693,7 @@ export function Sparkline({ data, color = VIZ.green, width = 108, height = 30 }:
   width?: number
   height?: number
 }) {
+  const c = useChartColors()
   if (data.length < 2) return null
 
   const max = Math.max(...data, 1)
@@ -679,7 +706,7 @@ export function Sparkline({ data, color = VIZ.green, width = 108, height = 30 }:
     <svg width={width} height={height} aria-hidden="true" style={{ display: 'block', overflow: 'visible' }}>
       <path d={`${path} L ${width} ${height} L 0 ${height} Z`} fill={color} opacity={0.09} />
       <path d={path} fill="none" stroke={color} strokeWidth={1.5} strokeLinejoin="round" strokeLinecap="round" />
-      <circle cx={x(n)} cy={y(data[n]!)} r={2.5} fill={color} stroke={SURFACE} strokeWidth={1.5} />
+      <circle cx={x(n)} cy={y(data[n]!)} r={2.5} fill={color} stroke={c.surface} strokeWidth={1.5} />
     </svg>
   )
 }

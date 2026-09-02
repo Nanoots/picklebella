@@ -1,5 +1,10 @@
 @import 'tailwindcss';
 
+/* Class-based dark variant, scoped to the admin dashboard: the `.dark` class
+   only ever lands on AdminPage's root div (see adminTheme.tsx), so `dark:`
+   utilities and the override block below have no effect on the public site. */
+@custom-variant dark (&:where(.dark, .dark *));
+
 /* ---------------------------------------------------------------
    Base resets
    --------------------------------------------------------------- */
@@ -148,4 +153,105 @@ button {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+/* ---------------------------------------------------------------
+   Admin dark mode
+
+   The admin views are built almost entirely from a fixed set of Tailwind
+   gray/status utility classes (bg-white, text-gray-400, border-gray-100, the
+   status-badge colors, ...), repeated across ~8 files. Rather than adding a
+   `dark:` variant next to every one of those classes individually, this block
+   overrides that exact set once the `.dark` class is on an ancestor — a
+   `.dark .bg-white` rule outranks `.bg-white` on specificity, so it wins
+   regardless of source order. The handful of inline-styled surfaces that fall
+   outside Tailwind classes (the sidebar, tab bars, chart SVG text, stat-card
+   values) instead read colors from adminTheme.tsx's useAdminColors(), or from
+   the --pb-* variables below via inline `var(...)`.
+   --------------------------------------------------------------- */
+
+/* Light-mode defaults for the handful of inline `style={{ color: 'var(--pb-…)' }}`
+   spots scattered across the admin views (form labels, chip backgrounds,
+   card dividers) — anywhere swapping a literal hex for a CSS variable was
+   less churn than threading useAdminColors() through that one line. */
+:root {
+  --pb-page-bg: #F6F7F5;
+  --pb-card: #FFFFFF;
+  --pb-border: #E5E7EB;
+  --pb-border-soft: #F3F4F6;
+  --pb-hover-bg: #F9FAFB;
+  --pb-text: #111827;
+  --pb-text-soft: #374151;
+  --pb-text-faint: #6B7280;
+  --pb-text-muted: #9CA3AF;
+  --pb-brand: #0F3A1C;
+  --pb-danger-bg: #FEF2F2;
+  --pb-danger-border: #FECACA;
+  --pb-danger-text: #DC2626;
+  --pb-danger-bg-soft: #FEE2E2;
+  --pb-success-bg: #ECFDF5;
+  --pb-success-text: #047857;
+}
+
+.dark {
+  color-scheme: dark;
+  --pb-page-bg: #0F1216;
+  --pb-card: #1A1F26;
+  --pb-border: #2E3440;
+  --pb-border-soft: #262B33;
+  --pb-hover-bg: #20252D;
+  --pb-text: #F3F4F6;
+  --pb-text-soft: #D1D5DB;
+  --pb-text-faint: #9CA3AF;
+  --pb-text-muted: #7B8494;
+  /* G_DARK reads as near-black against this palette's backgrounds — swapped
+     for the brighter brand lime so headings and the sidebar logo stay legible. */
+  --pb-brand: #7AC231;
+  --pb-danger-bg: rgba(248, 113, 113, 0.1);
+  --pb-danger-border: rgba(248, 113, 113, 0.35);
+  --pb-danger-text: #F87171;
+  --pb-danger-bg-soft: rgba(248, 113, 113, 0.16);
+  --pb-success-bg: rgba(74, 222, 128, 0.12);
+  --pb-success-text: #4ADE80;
+}
+
+.dark .bg-white { background-color: var(--pb-card); }
+.dark .text-gray-900,
+.dark .text-gray-800 { color: var(--pb-text); }
+.dark .text-gray-700,
+.dark .text-gray-600 { color: var(--pb-text-soft); }
+.dark .text-gray-500 { color: var(--pb-text-faint); }
+.dark .text-gray-400 { color: var(--pb-text-muted); }
+.dark .border-gray-50,
+.dark .border-gray-100 { border-color: var(--pb-border-soft); }
+.dark .border-gray-200 { border-color: var(--pb-border); }
+.dark .bg-gray-50 { background-color: var(--pb-hover-bg); }
+.dark .bg-gray-100 { background-color: var(--pb-border-soft); }
+.dark .shadow-sm,
+.dark .shadow-lg { box-shadow: 0 1px 4px rgba(0, 0, 0, 0.45); }
+
+.dark .bg-red-50 { background-color: rgba(248, 113, 113, 0.12); }
+.dark .text-red-600,
+.dark .text-red-700 { color: #F87171; }
+.dark .border-red-200 { border-color: rgba(248, 113, 113, 0.35); }
+.dark .bg-red-100 { background-color: rgba(248, 113, 113, 0.18); }
+.dark .bg-amber-50 { background-color: rgba(251, 191, 36, 0.12); }
+.dark .bg-amber-100 { background-color: rgba(251, 191, 36, 0.18); }
+.dark .text-amber-700 { color: #FBBF24; }
+.dark .border-amber-200 { border-color: rgba(251, 191, 36, 0.35); }
+.dark .bg-green-100 { background-color: rgba(74, 222, 128, 0.16); }
+.dark .text-green-700 { color: #4ADE80; }
+
+.dark input,
+.dark select,
+.dark textarea {
+  background-color: var(--pb-hover-bg);
+  color: var(--pb-text);
+  border-color: var(--pb-border);
+}
+.dark input::placeholder,
+.dark textarea::placeholder { color: var(--pb-text-muted); }
+
+.dark *:hover {
+  scrollbar-color: rgba(255, 255, 255, 0.18) transparent;
 }

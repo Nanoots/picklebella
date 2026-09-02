@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Menu } from 'lucide-react'
+import { Menu, Moon, Sun } from 'lucide-react'
 import * as api from '../lib/api'
 import type { Booking, Block, Court } from '../lib/types'
 import { errorMessage } from '../lib/useAsync'
 import { ErrorBlock, LoadingBlock } from '../components/States'
-import { FONT_BODY, FONT_DISPLAY, G_DARK } from '../lib/theme'
+import { FONT_BODY, FONT_DISPLAY } from '../lib/theme'
 import { useIsNarrow } from '../lib/useMediaQuery'
+import { AdminThemeProvider, useAdminColors, useAdminTheme } from './admin/adminTheme'
 import AdminSidebar from './admin/AdminSidebar'
 import DashboardView from './admin/DashboardView'
 import FacilitiesView from './admin/FacilitiesView'
@@ -32,8 +33,18 @@ const SECTION_META: Record<AdminSection, { title: string; subtitle: string }> = 
   reports: { title: 'Reports', subtitle: 'Revenue, occupancy & peak hours' },
 }
 
-export default function AdminPage({ onExit, onLogout }: Props) {
+export default function AdminPage(props: Props) {
+  return (
+    <AdminThemeProvider>
+      <AdminPageInner {...props} />
+    </AdminThemeProvider>
+  )
+}
+
+function AdminPageInner({ onExit, onLogout }: Props) {
   const isNarrow = useIsNarrow()
+  const { dark, toggle: toggleDark } = useAdminTheme()
+  const colors = useAdminColors()
   const [section, setSection] = useState<AdminSection>('dashboard')
   const [navOpen, setNavOpen] = useState(false)
   const [bookings, setBookings] = useState<Booking[]>([])
@@ -96,33 +107,43 @@ export default function AdminPage({ onExit, onLogout }: Props) {
   const meta = SECTION_META[section]
 
   return (
-    <div style={{ fontFamily: FONT_BODY, display: 'flex', minHeight: '100vh', backgroundColor: '#F6F7F5' }}>
+    <div className={dark ? 'dark' : undefined} style={{ fontFamily: FONT_BODY, display: 'flex', minHeight: '100vh', backgroundColor: colors.bg }}>
       <AdminSidebar section={section} onSelect={selectSection} onLogout={onLogout} open={navOpen} onClose={() => setNavOpen(false)} />
 
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ backgroundColor: 'white', borderBottom: '1px solid #EEF0ED', position: 'sticky', top: 0, zIndex: 30 }}>
+        <div style={{ backgroundColor: colors.card, borderBottom: `1px solid ${colors.border}`, position: 'sticky', top: 0, zIndex: 30 }}>
           <div style={{ maxWidth: '1400px', margin: '0 auto', padding: isNarrow ? '0.9rem 1rem' : '1.1rem 1.75rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.75rem' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', minWidth: 0 }}>
               {isNarrow && (
                 <button
                   onClick={() => setNavOpen(true)}
                   aria-label="Open menu"
-                  style={{ border: '1px solid #E5E7EB', background: 'white', borderRadius: '8px', padding: '0.45rem', cursor: 'pointer', display: 'flex', flexShrink: 0, color: G_DARK }}
+                  style={{ border: `1px solid ${colors.border}`, background: colors.card, borderRadius: '8px', padding: '0.45rem', cursor: 'pointer', display: 'flex', flexShrink: 0, color: 'var(--pb-brand)' }}
                 >
                   <Menu size={19} />
                 </button>
               )}
               <div style={{ minWidth: 0 }}>
-                <h1 style={{ fontFamily: FONT_DISPLAY, fontSize: isNarrow ? '1.1rem' : '1.3rem', fontWeight: 700, color: G_DARK, margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{meta.title}</h1>
-                {!isNarrow && <p style={{ fontSize: '0.8rem', color: '#9CA3AF', margin: '2px 0 0' }}>{meta.subtitle}</p>}
+                <h1 style={{ fontFamily: FONT_DISPLAY, fontSize: isNarrow ? '1.1rem' : '1.3rem', fontWeight: 700, color: 'var(--pb-brand)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{meta.title}</h1>
+                {!isNarrow && <p style={{ fontSize: '0.8rem', color: colors.textMuted, margin: '2px 0 0' }}>{meta.subtitle}</p>}
               </div>
             </div>
-            <button
-              onClick={onExit}
-              style={{ color: '#4B5563', background: 'white', border: '1px solid #E5E7EB', borderRadius: '999px', padding: isNarrow ? '0.45rem 0.85rem' : '0.5rem 1.1rem', fontSize: '0.82rem', fontWeight: 600, cursor: 'pointer', fontFamily: FONT_BODY, flexShrink: 0 }}
-            >
-              View Site
-            </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexShrink: 0 }}>
+              <button
+                onClick={toggleDark}
+                aria-label={dark ? 'Switch to light mode' : 'Switch to dark mode'}
+                title={dark ? 'Switch to light mode' : 'Switch to dark mode'}
+                style={{ color: colors.textSoft, background: colors.card, border: `1px solid ${colors.border}`, borderRadius: '999px', width: isNarrow ? '2.1rem' : '2.3rem', height: isNarrow ? '2.1rem' : '2.3rem', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+              >
+                {dark ? <Sun size={16} /> : <Moon size={16} />}
+              </button>
+              <button
+                onClick={onExit}
+                style={{ color: colors.textSoft, background: colors.card, border: `1px solid ${colors.border}`, borderRadius: '999px', padding: isNarrow ? '0.45rem 0.85rem' : '0.5rem 1.1rem', fontSize: '0.82rem', fontWeight: 600, cursor: 'pointer', fontFamily: FONT_BODY, whiteSpace: 'nowrap' }}
+              >
+                View Site
+              </button>
+            </div>
           </div>
         </div>
 

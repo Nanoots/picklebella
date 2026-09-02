@@ -11,7 +11,7 @@ export function LoadingBlock({ label = 'Loading…', pad = '3rem' }: { label?: s
     <div
       role="status"
       aria-live="polite"
-      style={{ padding: pad, textAlign: 'center', color: '#9CA3AF', fontSize: '0.85rem', fontFamily: FONT_BODY }}
+      style={{ padding: pad, textAlign: 'center', color: 'var(--pb-text-muted)', fontSize: '0.85rem', fontFamily: FONT_BODY }}
     >
       {label}
     </div>
@@ -34,12 +34,12 @@ export function ErrorBlock({
         padding: pad,
         textAlign: 'center',
         fontFamily: FONT_BODY,
-        backgroundColor: '#FEF2F2',
-        border: '1px solid #FECACA',
+        backgroundColor: 'var(--pb-danger-bg)',
+        border: '1px solid var(--pb-danger-border)',
         borderRadius: '12px',
       }}
     >
-      <p style={{ color: '#DC2626', fontSize: '0.85rem', margin: 0, lineHeight: 1.6 }}>{message}</p>
+      <p style={{ color: 'var(--pb-danger-text)', fontSize: '0.85rem', margin: 0, lineHeight: 1.6 }}>{message}</p>
       {onRetry && (
         <button
           onClick={onRetry}
@@ -77,8 +77,8 @@ export function InlineError({ message }: { message: string }) {
     <div
       role="alert"
       style={{
-        backgroundColor: '#FEE2E2',
-        color: '#DC2626',
+        backgroundColor: 'var(--pb-danger-bg-soft)',
+        color: 'var(--pb-danger-text)',
         fontSize: '0.8rem',
         padding: '0.625rem 0.875rem',
         borderRadius: '8px',
@@ -96,8 +96,8 @@ export function InlineNotice({ message }: { message: string }) {
   return (
     <div
       style={{
-        backgroundColor: '#ECFDF5',
-        color: '#047857',
+        backgroundColor: 'var(--pb-success-bg)',
+        color: 'var(--pb-success-text)',
         fontSize: '0.8rem',
         padding: '0.625rem 0.875rem',
         borderRadius: '8px',

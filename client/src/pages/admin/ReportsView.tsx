@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { RefreshCw } from 'lucide-react'
+import { RefreshCw, CalendarCheck, Wallet, Clock3 } from 'lucide-react'
 import * as api from '../../lib/api'
 import type { MemberSummary, MonthlyReport } from '../../lib/types'
 import { fmtMoney, fmtHour, todayStr } from '../../lib/format'
@@ -7,6 +7,7 @@ import { useAsync } from '../../lib/useAsync'
 import { ErrorBlock, LoadingBlock } from '../../components/States'
 import { G, FONT_BODY, FONT_DISPLAY } from '../../lib/theme'
 import { getPaymentMethod } from '../../lib/paymentMethods'
+import { useAdminColors } from './adminTheme'
 import { StatCard, SectionCard, MonthYearPicker } from './shared'
 import { AreaChart, ColumnChart, HBarChart, VIZ } from './charts'
 
@@ -32,6 +33,7 @@ const TABS: { key: Tab; label: string }[] = [
 const MEDALS = ['🥇', '🥈', '🥉']
 
 export default function ReportsView() {
+  const colors = useAdminColors()
   const today = new Date(todayStr() + 'T00:00:00')
   const [year, setYear] = useState(today.getFullYear())
   const [month, setMonth] = useState(today.getMonth() + 1)
@@ -93,7 +95,7 @@ export default function ReportsView() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div style={{ display: 'flex', gap: '0.4rem', backgroundColor: '#F3F4F6', borderRadius: '12px', padding: '4px' }}>
+        <div style={{ display: 'flex', gap: '0.4rem', backgroundColor: colors.borderSoft, borderRadius: '12px', padding: '4px' }}>
           {TABS.map((t) => (
             <button
               key={t.key}
@@ -101,8 +103,8 @@ export default function ReportsView() {
               style={{
                 border: 'none', borderRadius: '9px', padding: '0.5rem 0.9rem', fontSize: '0.82rem', fontWeight: 600,
                 cursor: 'pointer', fontFamily: FONT_BODY,
-                backgroundColor: tab === t.key ? 'white' : 'transparent',
-                color: tab === t.key ? G : '#6B7280',
+                backgroundColor: tab === t.key ? colors.card : 'transparent',
+                color: tab === t.key ? G : colors.textFaint,
                 boxShadow: tab === t.key ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
               }}
             >
@@ -128,9 +130,9 @@ export default function ReportsView() {
       {state.data && tab === 'overview' && (
         <>
           <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
-            <StatCard label="Bookings" value={report.bookingsCount} sub="active this period" />
-            <StatCard label="Court Revenue" value={fmtMoney(report.revenue)} sub="paid bookings" accent={G} />
-            <StatCard label="Booked Hours" value={report.bookedHours.toFixed(1)} sub="across all courts" />
+            <StatCard label="Bookings" value={report.bookingsCount} sub="active this period" accent={VIZ.blue} icon={CalendarCheck} />
+            <StatCard label="Court Revenue" value={fmtMoney(report.revenue)} sub="paid bookings" accent={VIZ.green} icon={Wallet} />
+            <StatCard label="Booked Hours" value={report.bookedHours.toFixed(1)} sub="across all courts" accent={VIZ.amber} icon={Clock3} />
           </div>
           <SectionCard title="Daily revenue" subtitle="Paid court revenue by day this month">
             <AreaChart
