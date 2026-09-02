@@ -583,7 +583,7 @@ export default function BookingPage({ user, initialCourtId, initialTab, onBack, 
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" strokeWidth="2" strokeLinecap="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" /><circle cx="12" cy="10" r="3" /></svg>
-                <span style={{ fontSize: '0.8rem', color: '#374151' }}>123 Rally Street, Quezon City</span>
+                <span style={{ fontSize: '0.8rem', color: '#374151' }}>Jamison St., Isulan, Sultan Kudarat</span>
               </div>
             </div>
           </div>
@@ -591,7 +591,12 @@ export default function BookingPage({ user, initialCourtId, initialTab, onBack, 
           <div style={{ backgroundColor: 'white', borderRadius: '14px', overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
             <div style={{ padding: '0.875rem 1.25rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <h3 style={{ fontSize: '0.88rem', fontWeight: 700, color: '#111827', margin: 0 }}>Location</h3>
-              <a href="#" style={{ fontSize: '0.75rem', color: BLUE, textDecoration: 'none', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '3px' }}>
+              <a
+                href="https://www.google.com/maps/search/?api=1&query=6.628528,124.603528"
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ fontSize: '0.75rem', color: BLUE, textDecoration: 'none', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '3px' }}
+              >
                 <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" /><circle cx="12" cy="10" r="3" /></svg>
                 Get Directions
               </a>
@@ -602,7 +607,7 @@ export default function BookingPage({ user, initialCourtId, initialTab, onBack, 
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="white"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" /></svg>
                 </div>
                 <p style={{ fontSize: '0.72rem', color: '#1E3A8A', fontWeight: 600, margin: 0 }}>PickleBella Park</p>
-                <p style={{ fontSize: '0.65rem', color: '#6B7280', margin: '2px 0 0' }}>123 Rally Street</p>
+                <p style={{ fontSize: '0.65rem', color: '#6B7280', margin: '2px 0 0' }}>Jamison St., Isulan</p>
               </div>
             </div>
           </div>

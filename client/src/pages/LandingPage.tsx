@@ -457,9 +457,14 @@ export default function LandingPage({ user, onReserve, onSignIn, onSignOut, onAd
         <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
           <SectionHead kicker="Visit Us" title="Location & operating hours" />
           <div style={{ display: 'grid', gridTemplateColumns: isNarrow ? 'minmax(0,1fr)' : 'minmax(0,1.1fr) minmax(0,1fr)', gap: '2rem', alignItems: 'center' }}>
-            <div style={{ height: isMobile ? '190px' : '260px', borderRadius: '18px', background: 'linear-gradient(135deg, #D1FAE5 0%, #A7F3D0 50%, #6EE7B7 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', textAlign: 'center', padding: '1.5rem', color: G_DARK, fontWeight: 600, fontSize: isMobile ? '0.85rem' : '1rem', lineHeight: 1.6 }}>
-              📍 123 Rally Street, Barangay Match Point<br />Quezon City, Metro Manila
-            </div>
+            <a
+              href="https://www.google.com/maps/search/?api=1&query=6.628528,124.603528"
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ height: isMobile ? '190px' : '260px', borderRadius: '18px', background: 'linear-gradient(135deg, #D1FAE5 0%, #A7F3D0 50%, #6EE7B7 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', textAlign: 'center', padding: '1.5rem', color: G_DARK, fontWeight: 600, fontSize: isMobile ? '0.85rem' : '1rem', lineHeight: 1.6, textDecoration: 'none' }}
+            >
+              📍 Jamison St., Isulan<br />Sultan Kudarat
+            </a>
             <div>
               {venue.loading && <LoadingBlock label="Loading hours…" pad="1.5rem" />}
               {venue.error && <ErrorBlock message={venue.error} onRetry={venue.reload} pad="1.25rem" />}
@@ -504,12 +509,12 @@ export default function LandingPage({ user, onReserve, onSignIn, onSignOut, onAd
                 <img src={logoImg} alt="logo" style={{ height: '32px', width: '32px', borderRadius: '50%', objectFit: 'cover' }} />
                 <span style={{ fontFamily: FONT_DISPLAY, color: 'white', fontWeight: 700, fontSize: '1rem' }}>PickleBella Park</span>
               </div>
-              <p style={{ color: 'rgba(255,255,255,0.45)', fontSize: '0.8rem', lineHeight: 1.6 }}>Dink. Smash. Enjoy. Manila's friendliest pickleball courts — book online in seconds.</p>
+              <p style={{ color: 'rgba(255,255,255,0.45)', fontSize: '0.8rem', lineHeight: 1.6 }}>Dink. Smash. Enjoy. Sultan Kudarat's friendliest pickleball courts — book online in seconds.</p>
             </div>
             {[
               { h: 'Explore', links: [['Courts', '#courts'], ['How it Works', '#how'], ['Amenities', '#amenities'], ['Book Now', '#']] },
               { h: 'Support', links: [['FAQs', '#'], ['Cancellation Policy', '#'], ['Contact Us', '#']] },
-              { h: 'Contact', links: [['123 Rally St, Quezon City', '#'], ['(0917) 123-4567', 'tel:+639171234567'], ['hello@picklebella.ph', 'mailto:hello@picklebella.ph']] },
+              { h: 'Contact', links: [['Jamison St., Isulan, Sultan Kudarat', 'https://www.google.com/maps/search/?api=1&query=6.628528,124.603528'], ['(0917) 123-4567', 'tel:+639171234567'], ['hello@picklebella.ph', 'mailto:hello@picklebella.ph']] },
             ].map((col) => (
               <div key={col.h}>
                 <h4 style={{ color: 'white', fontSize: '0.85rem', fontWeight: 700, margin: '0 0 0.875rem' }}>{col.h}</h4>
@@ -518,6 +523,8 @@ export default function LandingPage({ user, onReserve, onSignIn, onSignOut, onAd
                     <a
                       key={label}
                       href={href}
+                      target={href.startsWith('http') ? '_blank' : undefined}
+                      rel={href.startsWith('http') ? 'noopener noreferrer' : undefined}
                       onClick={label === 'Book Now' ? (e) => { e.preventDefault(); onReserve() } : undefined}
                       style={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.8rem', textDecoration: 'none' }}
                     >
