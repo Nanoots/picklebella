@@ -5,6 +5,7 @@ import blocks from '../../lib/admin/blocks.js'
 import bookings from '../../lib/admin/bookings.js'
 import courts from '../../lib/admin/courts.js'
 import hours from '../../lib/admin/hours.js'
+import images from '../../lib/admin/images.js'
 import members from '../../lib/admin/members.js'
 import pricing from '../../lib/admin/pricing.js'
 import promos from '../../lib/admin/promos.js'
@@ -40,6 +41,7 @@ const routes = new Map<string, Handler>([
   ['bookings', bookings],
   ['courts', courts],
   ['hours', hours],
+  ['images', images],
   ['members', members],
   ['pricing', pricing],
   ['promos', promos],

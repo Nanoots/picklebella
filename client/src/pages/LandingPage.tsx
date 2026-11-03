@@ -5,9 +5,10 @@ import heroImg from '@/imports/opt/Court123.webp'
 import heroSlide2 from '@/imports/opt/Court_1_2_3.webp'
 import type { User } from '../App'
 import * as api from '../lib/api'
-import type { Court, DayHours, HoursConfig } from '../lib/types'
+import type { Court, DayHours, HoursConfig, SiteImages } from '../lib/types'
 import { fmtHour, fmtMoney, todayStr } from '../lib/format'
 import { useAsync } from '../lib/useAsync'
+import { useSiteImages } from '../lib/siteImages'
 import { useIsMobile, useIsNarrow } from '../lib/useMediaQuery'
 import { ErrorBlock, LoadingBlock } from '../components/States'
 import { VENUE_MAPS_URL } from '../lib/venue'
@@ -22,8 +23,9 @@ const VenueMapCard = lazy(() => import('../components/VenueMap'))
 // court is selected) desaturate the other two courts, which is what was
 // reading as a "gray" flash when they turned up in this rotation.
 // index 0 is the LCP image and stays loaded eagerly; the rest only fetch once
-// the slideshow reaches them.
-const HERO_SLIDES = [heroImg, heroSlide2]
+// the slideshow reaches them. Backgrounds uploaded from the admin Images
+// screen replace these entirely.
+const DEFAULT_HERO_SLIDES = [heroImg, heroSlide2]
 const HERO_SLIDE_HOLD_MS = 8000 // each photo shows fully still for at least this long
 const HERO_MORPH_MS = 1800 // the next photo dissolves in over the base — the base itself never moves
 
@@ -40,6 +42,12 @@ function useHeroSlideshow(count: number) {
   indexRef.current = index
 
   useEffect(() => {
+    // The slide list can change under us (bundled photos swapped for uploaded
+    // ones once the config lands) — restart from the first rather than point
+    // past the end of a shorter list.
+    setIndex(0)
+    setIncomingIndex(null)
+    setMorphing(false)
     if (count < 2) return
     let raf1 = 0
     let raf2 = 0
@@ -150,12 +158,16 @@ export default function LandingPage({ user, onReserve, onSignIn, onSignOut, onAd
   const today = todayStr()
   const isMobile = useIsMobile()
   const isNarrow = useIsNarrow()
-  const heroSlideshow = useHeroSlideshow(HERO_SLIDES.length)
 
-  const venue = useAsync<{ courts: Court[]; hours: HoursConfig }>(async (signal) => {
+  const venue = useAsync<{ courts: Court[]; hours: HoursConfig; images?: SiteImages }>(async (signal) => {
     const [courts, config] = await Promise.all([api.getCourts(signal), api.getConfig(signal)])
-    return { courts, hours: config.hours }
+    return { courts, hours: config.hours, images: config.images }
   }, [])
+
+  const siteImages = useSiteImages(venue.data?.images)
+  const uploadedHero = siteImages.hero.map((i) => i.url)
+  const HERO_SLIDES = uploadedHero.length ? uploadedHero : DEFAULT_HERO_SLIDES
+  const heroSlideshow = useHeroSlideshow(HERO_SLIDES.length)
 
   const COURTS = venue.data?.courts ?? []
 

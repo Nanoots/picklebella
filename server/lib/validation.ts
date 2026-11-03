@@ -255,3 +255,22 @@ export const reportQuery = z.object({
   toYear: z.coerce.number().int().min(2000).max(2100).optional(),
   toMonth: z.coerce.number().int().min(1).max(12).optional(),
 })
+
+export const imageUpload = z.discriminatedUnion('slot', [
+  z.object({
+    slot: z.enum(['hero', 'openPlay', 'feed']),
+    // ~4 MB of base64 decodes to the 3 MB cap enforced on the bytes themselves.
+    data: z.string().min(1).max(4_200_000),
+    caption: text(500).default(''),
+  }),
+  z.object({
+    slot: z.literal('court'),
+    key: z.string().regex(/^(none|all|\d{1,2}(,\d{1,2})?)$/, 'Unknown court photo slot.'),
+    data: z.string().min(1).max(4_200_000),
+  }),
+])
+
+export const imageCaption = z.object({
+  id: uuid,
+  caption: text(500),
+})

@@ -15,6 +15,7 @@ import AvailabilityView from './admin/AvailabilityView'
 import MembersView from './admin/MembersView'
 import PricingView from './admin/PricingView'
 import ReportsView from './admin/ReportsView'
+import ImagesView from './admin/ImagesView'
 import { Toast } from './admin/shared'
 import type { AdminSection } from './admin/types'
 
@@ -30,6 +31,7 @@ const SECTION_META: Record<AdminSection, { title: string; subtitle: string }> = 
   availability: { title: 'Manage Availability', subtitle: 'Block or open up court time' },
   members: { title: 'Members', subtitle: 'Customer profiles, history & access' },
   pricing: { title: 'Pricing & Promos', subtitle: 'Peak rates and discount codes' },
+  images: { title: 'Images', subtitle: 'Photos on the landing page, courts, open plays & feed' },
   reports: { title: 'Reports', subtitle: 'Revenue, occupancy & peak hours' },
 }
 
@@ -160,6 +162,7 @@ function AdminPageInner({ onExit, onLogout }: Props) {
               {section === 'availability' && <AvailabilityView blocks={blocks} courts={courts} refresh={refresh} showToast={showToast} />}
               {section === 'members' && <MembersView refreshKey={dataVersion} bookings={bookings} courts={courts} refresh={refresh} showToast={showToast} />}
               {section === 'pricing' && <PricingView courts={courts} refresh={refresh} showToast={showToast} />}
+              {section === 'images' && <ImagesView showToast={showToast} />}
               {section === 'reports' && <ReportsView />}
             </>
           )}

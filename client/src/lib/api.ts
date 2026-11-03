@@ -25,6 +25,7 @@ import type {
   PricingConfig,
   PromoCode,
   Quote,
+  SiteImages,
   SlotStatus,
 } from './types'
 
@@ -106,7 +107,7 @@ export function getCourts(signal?: AbortSignal): Promise<Court[]> {
   return request<Court[]>('/api/courts', { signal })
 }
 
-export function getConfig(signal?: AbortSignal): Promise<{ hours: HoursConfig; pricing: PricingConfig }> {
+export function getConfig(signal?: AbortSignal): Promise<{ hours: HoursConfig; pricing: PricingConfig; images?: SiteImages }> {
   return request('/api/config', { signal })
 }
 
@@ -274,6 +275,15 @@ export const admin = {
   listMembers: () => request<MemberSummary[]>('/api/admin/members', { auth: true }),
   setMemberAccess: (email: string, patch: { banned?: boolean; vip?: boolean; notes?: string }) =>
     request<MemberSummary>('/api/admin/members', { method: 'PATCH', body: { email, ...patch }, auth: true }),
+
+  listImages: () => request<SiteImages>('/api/admin/images', { auth: true }),
+  /** `data` is the image file as base64, already downsized by the caller. */
+  uploadImage: (input: { slot: 'hero' | 'openPlay' | 'feed'; data: string; caption?: string } | { slot: 'court'; key: string; data: string }) =>
+    request<SiteImages>('/api/admin/images', { method: 'POST', body: input, auth: true }),
+  updateImageCaption: (id: string, caption: string) =>
+    request<SiteImages>('/api/admin/images', { method: 'PATCH', body: { id, caption }, auth: true }),
+  deleteImage: (id: string) =>
+    request<SiteImages>('/api/admin/images' + qs({ id }), { method: 'DELETE', auth: true }),
 
   getReport: (year: number, month: number, to?: { year: number; month: number }) =>
     request<MonthlyReport>(

@@ -1,4 +1,4 @@
-import { LayoutDashboard, Building2, CalendarCheck, SlidersHorizontal, Users, Tag, BarChart3, LogOut, X } from 'lucide-react'
+import { LayoutDashboard, Building2, CalendarCheck, SlidersHorizontal, Users, Tag, Image, BarChart3, LogOut, X } from 'lucide-react'
 import logoImg from '@/imports/opt/logo.webp'
 import { G_DARK, G, LIME, FONT_BODY, FONT_DISPLAY } from '../../lib/theme'
 import { useIsNarrow } from '../../lib/useMediaQuery'
@@ -12,6 +12,7 @@ const NAV_ITEMS: { key: AdminSection; label: string; icon: typeof LayoutDashboar
   { key: 'availability', label: 'Manage Availability', icon: SlidersHorizontal },
   { key: 'members', label: 'Members', icon: Users },
   { key: 'pricing', label: 'Pricing & Promos', icon: Tag },
+  { key: 'images', label: 'Images', icon: Image },
   { key: 'reports', label: 'Reports', icon: BarChart3 },
 ]
 

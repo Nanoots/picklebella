@@ -12,10 +12,11 @@ import BookingModal from '../components/BookingModal'
 import type { User } from '../App'
 import * as api from '../lib/api'
 import type { AvailabilityResponse } from '../lib/api'
-import type { Booking, Court, HoursConfig } from '../lib/types'
+import type { Booking, Court, HoursConfig, SiteImage, SiteImages } from '../lib/types'
 import { OPEN_HOUR, CLOSE_HOUR } from '../lib/types'
 import { fmtDateLong, fmtHour, fmtMoney, todayStr, toLocalDateStr } from '../lib/format'
 import { useAsync } from '../lib/useAsync'
+import { useSiteImages } from '../lib/siteImages'
 import { useIsMobile, useIsNarrow } from '../lib/useMediaQuery'
 import { ErrorBlock, LoadingBlock } from '../components/States'
 import { VENUE_MAPS_URL, VENUE_ADDRESS } from '../lib/venue'
@@ -44,11 +45,46 @@ const COURT_PHOTOS: Record<string, string> = {
   '2,3': court23Img,
 }
 
-function photoForCourts(courtIds: string[]) {
+/** Same keys as the admin Images screen: an uploaded photo for a combination
+    wins over the bundled one. */
+function photoForCourts(courtIds: string[], uploaded: SiteImages['courts']) {
   const nums = [...new Set(courtIds.map((id) => id.replace('court-', '')))].sort()
-  if (nums.length === 0) return courtNoneImg
-  if (nums.length >= 3) return courtAllImg
-  return COURT_PHOTOS[nums.join(',')] ?? courtNoneImg
+  const key = nums.length === 0 ? 'none' : nums.length >= 3 ? 'all' : nums.join(',')
+  if (uploaded[key]) return uploaded[key].url
+  if (key === 'none') return courtNoneImg
+  if (key === 'all') return courtAllImg
+  return COURT_PHOTOS[key] ?? courtNoneImg
+}
+
+// Tall enough to show most of a day at once, short enough that the date bar
+// above and the legend below stay on screen while browsing times.
+const GRID_MAX_HEIGHT = 'min(560px, 62vh)'
+
+function fmtPostDate(iso: string) {
+  return new Date(iso).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' })
+}
+
+function PhotoEmpty({ icon, title, body }: { icon: string; title: string; body: string }) {
+  return (
+    <div style={{ padding: '4rem 1.5rem', textAlign: 'center' }}>
+      <p style={{ fontSize: '2rem', margin: '0 0 0.75rem' }}>{icon}</p>
+      <h3 style={{ fontFamily: FONT_DISPLAY, color: '#111827', fontSize: '1.15rem', fontWeight: 700, margin: '0 0 0.5rem' }}>{title}</h3>
+      <p style={{ color: '#9CA3AF', fontSize: '0.85rem', margin: 0 }}>{body}</p>
+    </div>
+  )
+}
+
+/** A photo that opens full-size in the lightbox when tapped. */
+function GalleryPhoto({ image, onOpen }: { image: SiteImage; onOpen: (img: SiteImage) => void }) {
+  return (
+    <button
+      type="button"
+      onClick={() => onOpen(image)}
+      style={{ display: 'block', width: '100%', padding: 0, border: 'none', background: '#F3F4F6', cursor: 'zoom-in', aspectRatio: '4 / 3', overflow: 'hidden', borderRadius: '10px' }}
+    >
+      <img src={image.url} alt={image.caption || 'PickleBella photo'} loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+    </button>
+  )
 }
 
 function dateStr(d: Date) {
@@ -122,12 +158,14 @@ export default function BookingPage({ user, initialCourtId, initialTab, onBack, 
   const ds = dateStr(curDate)
   const isToday = ds === todayStr()
 
-  const venue = useAsync<{ courts: Court[]; hours: HoursConfig }>(async (signal) => {
+  const venue = useAsync<{ courts: Court[]; hours: HoursConfig; images?: SiteImages }>(async (signal) => {
     const [courts, config] = await Promise.all([api.getCourts(signal), api.getConfig(signal)])
-    return { courts, hours: config.hours }
+    return { courts, hours: config.hours, images: config.images }
   }, [])
 
   const COURTS = venue.data?.courts ?? []
+  const siteImages = useSiteImages(venue.data?.images)
+  const [lightbox, setLightbox] = useState<SiteImage | null>(null)
 
   // Re-fetched whenever the date changes, so the grid always reflects what the
   // server currently believes rather than a snapshot from page load.
@@ -161,6 +199,21 @@ export default function BookingPage({ user, initialCourtId, initialTab, onBack, 
     if (th) gridWrapRef.current.scrollLeft = th.offsetLeft - 100
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialCourtId, gridReady])
+
+  // The grid scrolls inside its own box. Today, start it at the first hour
+  // that can still be booked rather than a screenful of greyed-out morning;
+  // any other day starts from opening time.
+  useEffect(() => {
+    const wrap = gridWrapRef.current
+    if (!wrap || !gridReady) return
+    if (!isToday) { wrap.scrollTop = 0; return }
+    const nowHour = new Date().getHours()
+    const row = [...wrap.querySelectorAll<HTMLElement>('tr[data-hour]')].find((r) => Number(r.dataset.hour) > nowHour)
+    const headH = wrap.querySelector('thead')?.getBoundingClientRect().height ?? 0
+    // Back up a little so the first open slot has some context above it.
+    wrap.scrollTop = row ? Math.max(0, row.offsetTop - headH - 36) : 0
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ds, gridReady, activeTab])
 
   function prevDay() {
     if (isToday) return
@@ -216,7 +269,7 @@ export default function BookingPage({ user, initialCourtId, initialTab, onBack, 
   const hasSelection = selected.length > 0
   const selectedCourtIds = [...new Set(selected.map((s) => s.courtId))]
   const courtCount = selectedCourtIds.length
-  const heroPhoto = photoForCourts(selectedCourtIds)
+  const heroPhoto = photoForCourts(selectedCourtIds, siteImages.courts)
 
   function courtName(id: string) {
     return COURTS.find((c) => c.id === id)?.name ?? id
@@ -351,6 +404,41 @@ export default function BookingPage({ user, initialCourtId, initialTab, onBack, 
                 </div>
               )}
             </div>
+          ) : activeTab === 'Open Plays' ? (
+            siteImages.openPlay.length === 0 ? (
+              <PhotoEmpty icon="🏓" title="No open play photos yet" body="Photos from our open play sessions will show up here." />
+            ) : (
+              <div style={{ padding: isMobile ? '0.9rem' : '1.25rem', display: 'grid', gridTemplateColumns: `repeat(auto-fill, minmax(${isMobile ? '140px' : '180px'}, 1fr))`, gap: isMobile ? '0.6rem' : '0.85rem' }}>
+                {siteImages.openPlay.map((img) => (
+                  <figure key={img.id} style={{ margin: 0 }}>
+                    <GalleryPhoto image={img} onOpen={setLightbox} />
+                    {img.caption && <figcaption style={{ fontSize: '0.75rem', color: '#6B7280', marginTop: '0.35rem', lineHeight: 1.4 }}>{img.caption}</figcaption>}
+                  </figure>
+                ))}
+              </div>
+            )
+          ) : activeTab === 'Feed' ? (
+            siteImages.feed.length === 0 ? (
+              <PhotoEmpty icon="📰" title="Nothing in the feed yet" body="News and photos from PickleBella Park will be posted here." />
+            ) : (
+              <div style={{ padding: isMobile ? '0.9rem' : '1.25rem', display: 'flex', flexDirection: 'column', gap: '1rem', maxWidth: '620px', margin: '0 auto' }}>
+                {siteImages.feed.map((img) => (
+                  <article key={img.id} style={{ border: '1px solid #E5E7EB', borderRadius: '14px', overflow: 'hidden' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', padding: '0.75rem 0.9rem' }}>
+                      <img src={logoImg} alt="" style={{ width: '30px', height: '30px', borderRadius: '50%', objectFit: 'cover' }} />
+                      <div>
+                        <p style={{ margin: 0, fontSize: '0.82rem', fontWeight: 700, color: '#111827' }}>PickleBella Park</p>
+                        <p style={{ margin: 0, fontSize: '0.7rem', color: '#9CA3AF' }}>{fmtPostDate(img.createdAt)}</p>
+                      </div>
+                    </div>
+                    <button type="button" onClick={() => setLightbox(img)} style={{ display: 'block', width: '100%', padding: 0, border: 'none', background: '#F3F4F6', cursor: 'zoom-in' }}>
+                      <img src={img.url} alt={img.caption || 'PickleBella update'} loading="lazy" decoding="async" style={{ width: '100%', maxHeight: '520px', objectFit: 'cover', display: 'block' }} />
+                    </button>
+                    {img.caption && <p style={{ margin: 0, padding: '0.75rem 0.9rem', fontSize: '0.85rem', color: '#374151', lineHeight: 1.55, whiteSpace: 'pre-line' }}>{img.caption}</p>}
+                  </article>
+                ))}
+              </div>
+            )
           ) : activeTab !== 'Book' ? (
             <div style={{ padding: '4rem 1.5rem', textAlign: 'center' }}>
               <p style={{ fontSize: '2rem', margin: '0 0 0.75rem' }}>🚧</p>
@@ -419,13 +507,13 @@ export default function BookingPage({ user, initialCourtId, initialTab, onBack, 
                   <p style={{ color: '#9CA3AF', fontSize: '0.85rem', margin: 0 }}>Pick another date to see available courts.</p>
                 </div>
               ) : (
-              <div ref={gridWrapRef} style={{ overflowX: 'auto' }}>
+              <div ref={gridWrapRef} style={{ overflow: 'auto', maxHeight: GRID_MAX_HEIGHT, overscrollBehavior: 'contain' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: isMobile ? `${80 + COURTS.length * 86}px` : '480px' }}>
                   <thead>
                     <tr style={{ backgroundColor: '#F9FAFB' }}>
-                      <th style={{ padding: isMobile ? '0.65rem 0.75rem' : '0.75rem 1.25rem', textAlign: 'left', fontSize: '0.7rem', fontWeight: 700, color: '#6B7280', letterSpacing: '0.08em', textTransform: 'uppercase', borderBottom: '1px solid #F3F4F6', width: isMobile ? '80px' : '155px' }}>TIME</th>
+                      <th style={{ position: 'sticky', top: 0, zIndex: 2, backgroundColor: '#F9FAFB', boxShadow: 'inset 0 -1px 0 #E5E7EB', padding: isMobile ? '0.65rem 0.75rem' : '0.75rem 1.25rem', textAlign: 'left', fontSize: '0.7rem', fontWeight: 700, color: '#6B7280', letterSpacing: '0.08em', textTransform: 'uppercase', width: isMobile ? '80px' : '155px' }}>TIME</th>
                       {COURTS.map((c) => (
-                        <th key={c.id} style={{ padding: isMobile ? '0.65rem 0.35rem' : '0.75rem', textAlign: 'center', fontSize: isMobile ? '0.66rem' : '0.72rem', fontWeight: 700, color: c.id === initialCourtId ? BLUE : '#6B7280', letterSpacing: '0.08em', textTransform: 'uppercase', borderBottom: c.id === initialCourtId ? `2px solid ${BLUE}` : '1px solid #F3F4F6' }}>
+                        <th key={c.id} style={{ padding: isMobile ? '0.65rem 0.35rem' : '0.75rem', textAlign: 'center', fontSize: isMobile ? '0.66rem' : '0.72rem', fontWeight: 700, color: c.id === initialCourtId ? BLUE : '#6B7280', letterSpacing: '0.08em', textTransform: 'uppercase', position: 'sticky', top: 0, zIndex: 2, backgroundColor: '#F9FAFB', boxShadow: c.id === initialCourtId ? `inset 0 -2px 0 ${BLUE}` : 'inset 0 -1px 0 #E5E7EB' }}>
                           {c.name}
                         </th>
                       ))}
@@ -439,7 +527,7 @@ export default function BookingPage({ user, initialCourtId, initialTab, onBack, 
                         </td>
                       </tr>,
                       ...group.hours.map((hour) => (
-                        <tr key={`s-${hour}`} style={{ borderTop: '1px solid #F9FAFB' }}>
+                        <tr key={`s-${hour}`} data-hour={hour} style={{ borderTop: '1px solid #F9FAFB' }}>
                           <td style={{ padding: isMobile ? '0.7rem 0.75rem' : '0.875rem 1.25rem', verticalAlign: 'middle', whiteSpace: 'nowrap' }}>
                             <p style={{ fontSize: isMobile ? '0.72rem' : '0.8rem', fontWeight: 600, color: '#111827', margin: 0, lineHeight: 1.35 }}>
                               {isMobile ? (
@@ -656,6 +744,18 @@ export default function BookingPage({ user, initialCourtId, initialTab, onBack, 
           </button>
         </div>
       </div>
+
+      {lightbox && (
+        <div
+          onClick={() => setLightbox(null)}
+          role="dialog"
+          aria-label="Photo"
+          style={{ position: 'fixed', inset: 0, zIndex: 100, backgroundColor: 'rgba(0,0,0,0.85)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '1rem', cursor: 'zoom-out' }}
+        >
+          <img src={lightbox.url} alt={lightbox.caption || 'PickleBella photo'} style={{ maxWidth: '100%', maxHeight: '85vh', objectFit: 'contain', borderRadius: '8px' }} />
+          {lightbox.caption && <p style={{ color: 'rgba(255,255,255,0.85)', fontSize: '0.85rem', margin: '0.75rem 0 0', textAlign: 'center', maxWidth: '640px', whiteSpace: 'pre-line' }}>{lightbox.caption}</p>}
+        </div>
+      )}
 
       {showModal && user && (
         <BookingModal

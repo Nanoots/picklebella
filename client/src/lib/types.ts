@@ -178,3 +178,23 @@ export const COURT_PALETTE = [
   'linear-gradient(135deg,#2563EB,#1E40AF)',
   'linear-gradient(135deg,#7AC231,#4D7C0F)',
 ]
+
+/** An admin-uploaded photo, served from public Supabase Storage. */
+export type SiteImage = {
+  id: string
+  url: string
+  path: string
+  caption: string
+  createdAt: string
+}
+
+export type SiteImages = {
+  /** Landing-page background slides. Empty means use the bundled photos. */
+  hero: SiteImage[]
+  openPlay: SiteImage[]
+  feed: SiteImage[]
+  /** Booking-page court photos keyed by combination: 'none', 'all', '1', '1,2', … */
+  courts: Record<string, SiteImage>
+}
+
+export type GallerySlot = 'hero' | 'openPlay' | 'feed'
