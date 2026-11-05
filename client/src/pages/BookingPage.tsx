@@ -406,7 +406,7 @@ export default function BookingPage({ user, initialCourtId, initialTab, onBack, 
             </div>
           ) : activeTab === 'Open Plays' ? (
             siteImages.openPlay.length === 0 ? (
-              <PhotoEmpty icon="🏓" title="No open play photos yet" body="Photos from our open play sessions will show up here." />
+              <PhotoEmpty icon="🏓" title="No open play yet" body="Photos from our open play sessions will show up here." />
             ) : (
               <div style={{ padding: isMobile ? '0.9rem' : '1.25rem', display: 'grid', gridTemplateColumns: `repeat(auto-fill, minmax(${isMobile ? '140px' : '180px'}, 1fr))`, gap: isMobile ? '0.6rem' : '0.85rem' }}>
                 {siteImages.openPlay.map((img) => (
@@ -507,7 +507,7 @@ export default function BookingPage({ user, initialCourtId, initialTab, onBack, 
                   <p style={{ color: '#9CA3AF', fontSize: '0.85rem', margin: 0 }}>Pick another date to see available courts.</p>
                 </div>
               ) : (
-              <div ref={gridWrapRef} style={{ overflow: 'auto', maxHeight: GRID_MAX_HEIGHT, overscrollBehavior: 'contain' }}>
+              <div ref={gridWrapRef} style={{ overflow: 'auto', maxHeight: GRID_MAX_HEIGHT, overscrollBehaviorX: 'contain', overscrollBehaviorY: 'auto' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: isMobile ? `${80 + COURTS.length * 86}px` : '480px' }}>
                   <thead>
                     <tr style={{ backgroundColor: '#F9FAFB' }}>
