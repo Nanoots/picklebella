@@ -4,7 +4,8 @@ import AuthModal from './components/AuthModal'
 import AdminLoginModal from './components/AdminLoginModal'
 import PaymentReturn from './components/PaymentReturn'
 import ResetPasswordPage from './pages/ResetPasswordPage'
-import { LoadingBlock } from './components/States'
+import { PageLoader } from './components/PickleLoader'
+import { hideSplash } from './lib/splash'
 
 /* The landing page is what a first-time visitor loads, and it needs neither of
    these. Split out, the admin dashboard (which pulls in every admin view and
@@ -34,6 +35,17 @@ function pageFromPath(): Page {
 function paymentFromQuery(): string | null {
   const value = new URLSearchParams(window.location.search).get('payment')
   return value && value.trim() ? value.trim() : null
+}
+
+/**
+ * Lifts the index.html splash once it mounts. Placed inside each page's
+ * Suspense boundary, so it only mounts when that page's lazy chunk has
+ * arrived — the splash covers the session check and the chunk download as
+ * one continuous load instead of handing off to a second loader midway.
+ */
+function SplashDone() {
+  useEffect(() => { hideSplash() }, [])
+  return null
 }
 
 export default function App() {
@@ -135,7 +147,12 @@ export default function App() {
   // every other page state — there is nothing else a fresh click on that
   // link could sensibly mean.
   if (page === 'reset-password') {
-    return <ResetPasswordPage onDone={() => navigate('home')} />
+    return (
+      <>
+        <SplashDone />
+        <ResetPasswordPage onDone={() => navigate('home')} />
+      </>
+    )
   }
 
   /* Back from GCash / Maya / QR Ph.
@@ -152,11 +169,13 @@ export default function App() {
   return (
     <>
       {page === 'admin' && isAdmin ? (
-        <Suspense fallback={<LoadingBlock label="Loading admin…" pad="6rem" />}>
+        <Suspense fallback={<PageLoader message="Loading Admin" />}>
+          <SplashDone />
           <AdminPage onExit={() => navigate('home')} onLogout={() => { void handleAdminLogout() }} />
         </Suspense>
       ) : page === 'booking' || showPaymentReturn ? (
-        <Suspense fallback={<LoadingBlock label="Loading courts…" pad="6rem" />}>
+        <Suspense fallback={<PageLoader message="Loading Courts" />}>
+          <SplashDone />
           <BookingPage
             user={user}
             initialCourtId={pendingCourtId}
@@ -169,13 +188,16 @@ export default function App() {
           />
         </Suspense>
       ) : (
-        <LandingPage
-          user={user}
-          onReserve={handleReserve}
-          onSignIn={() => setShowAuth(true)}
-          onSignOut={() => { void handleSignOut() }}
-          onAdminSignIn={() => setShowAdminAuth(true)}
-        />
+        <>
+          <SplashDone />
+          <LandingPage
+            user={user}
+            onReserve={handleReserve}
+            onSignIn={() => setShowAuth(true)}
+            onSignOut={() => { void handleSignOut() }}
+            onAdminSignIn={() => setShowAdminAuth(true)}
+          />
+        </>
       )}
 
       {/* Rendered on top of the booking page above, not in place of it — the

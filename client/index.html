@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" class="pb-loading">
   <head>
     <meta charset="UTF-8" />
     <!-- viewport-fit=cover lets the sticky bars pad themselves against the
@@ -21,8 +21,34 @@
       rel="stylesheet"
       href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700;9..144,800&family=Outfit:wght@300;400;500;600;700&display=swap"
     />
+
+    <!-- Linked here, not imported from a component, so the splash below is
+         styled on first paint, before the JS bundle has arrived. -->
+    <link rel="stylesheet" href="/src/styles/pickle-loader.css" />
+    <link rel="preload" as="image" href="/assets/logo.webp" />
   </head>
   <body>
+    <!-- Splash: plain markup so it shows before any JS runs. Driven by
+         src/lib/splash.ts and removed by App once real content mounts.
+         Keep in step with PageLoader in src/components/PickleLoader.tsx. -->
+    <div id="pb-splash" class="pb-loader pb-loader--splash" role="status" aria-live="polite">
+      <div class="pb-loader__content">
+        <img class="pb-loader__logo" src="/assets/logo.webp" alt="PickleBella Park" draggable="false" />
+        <div class="pb-loader__court" aria-hidden="true">
+          <span class="pb-loader__paddle pb-loader__paddle--left"><span class="pb-loader__paddle-swing"><svg viewBox="0 0 24 40" focusable="false"><rect x="9.5" y="23" width="5" height="15" rx="2.2" fill="#ea6194"/><rect x="9.5" y="35.5" width="5" height="3" rx="1.2" fill="#c54a7b"/><path d="M9 22 L12 27 L15 22 Z" fill="#042210"/><rect x="1.5" y="1" width="21" height="23" rx="9.5" fill="#0b4526" stroke="#042210" stroke-width="1.4"/><rect x="5" y="4.5" width="14" height="16" rx="6.5" fill="none" stroke="#2f7a50" stroke-width="1"/></svg></span></span>
+          <span class="pb-loader__paddle pb-loader__paddle--right"><span class="pb-loader__paddle-swing"><svg viewBox="0 0 24 40" focusable="false"><rect x="9.5" y="23" width="5" height="15" rx="2.2" fill="#ea6194"/><rect x="9.5" y="35.5" width="5" height="3" rx="1.2" fill="#c54a7b"/><path d="M9 22 L12 27 L15 22 Z" fill="#042210"/><rect x="1.5" y="1" width="21" height="23" rx="9.5" fill="#0b4526" stroke="#042210" stroke-width="1.4"/><rect x="5" y="4.5" width="14" height="16" rx="6.5" fill="none" stroke="#2f7a50" stroke-width="1"/></svg></span></span>
+          <div class="pb-loader__ball-x">
+            <span class="pb-loader__shadow"></span>
+            <div class="pb-loader__ball-y"><span class="pb-loader__ball"><svg viewBox="0 0 32 32" focusable="false"><defs><radialGradient id="pbSplashBall" cx="35%" cy="30%" r="75%"><stop offset="0" stop-color="#e3f55a"/><stop offset="0.6" stop-color="#c3de00"/><stop offset="1" stop-color="#8fae00"/></radialGradient></defs><circle cx="16" cy="16" r="15" fill="url(#pbSplashBall)" stroke="#467500" stroke-width="1.4"/><g fill="#5d8a00" opacity="0.75"><circle cx="16" cy="8" r="2"/><circle cx="9" cy="13" r="2"/><circle cx="23" cy="13" r="2"/><circle cx="12" cy="21" r="2"/><circle cx="20" cy="21" r="2"/><circle cx="16" cy="15" r="1.6"/></g></svg></span></div>
+          </div>
+        </div>
+        <div class="pb-loader__status">
+          <p class="pb-loader__msg">Connecting to Server</p>
+          <span class="pb-loader__dots" aria-hidden="true"><i></i><i></i><i></i></span>
+        </div>
+        <p class="pb-loader__sub"></p>
+      </div>
+    </div>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

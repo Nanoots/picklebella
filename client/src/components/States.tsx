@@ -5,17 +5,13 @@
    as a broken page rather than a failed request. */
 
 import { FONT_BODY, G, PINK } from '../lib/theme'
+import { BlockLoader } from './PickleLoader'
 
+/** The rally loader, sized to sit where the content will appear. Sections
+ * that are the whole page's content (pad ≥ 4rem) also get the logo. */
 export function LoadingBlock({ label = 'Loading…', pad = '3rem' }: { label?: string; pad?: string }) {
-  return (
-    <div
-      role="status"
-      aria-live="polite"
-      style={{ padding: pad, textAlign: 'center', color: 'var(--pb-text-muted)', fontSize: '0.85rem', fontFamily: FONT_BODY }}
-    >
-      {label}
-    </div>
-  )
+  const big = parseFloat(pad) >= 4
+  return <BlockLoader label={label} pad={pad} logo={big} />
 }
 
 export function ErrorBlock({

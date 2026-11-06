@@ -1,16 +1,5 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
-
-const STORAGE_KEY = 'pb-admin-theme'
-
-/** Defaults to the OS/browser preference the first time the admin is opened;
- * after that, whatever the toggle was last set to wins. */
-function initialDark(): boolean {
-  if (typeof window === 'undefined') return false
-  const stored = localStorage.getItem(STORAGE_KEY)
-  if (stored === 'dark') return true
-  if (stored === 'light') return false
-  return window.matchMedia('(prefers-color-scheme: dark)').matches
-}
+import { ADMIN_THEME_KEY as STORAGE_KEY, adminThemeIsDark as initialDark } from '../../lib/adminThemePref'
 
 interface AdminThemeValue {
   dark: boolean

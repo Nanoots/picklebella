@@ -1,0 +1,323 @@
+/* ==========================================================================
+   PickleBella loader — the rally animation from imports/picklebella-loader-preview.html
+
+   Linked straight from index.html (not imported from a component) so the
+   pre-React splash in index.html is styled on first paint — a stylesheet
+   that only arrives with the JS bundle would show a bare logo and text first.
+
+   Three uses, one set of markup:
+     .pb-loader--splash   static splash in index.html, up before any JS runs
+     .pb-loader--screen   full-page loader while a lazy page chunk downloads
+     .pb-loader--block    in-page loader for a section (LoadingBlock)
+   ========================================================================== */
+
+.pb-loader {
+  --pbl-green: #0b4526;
+  --pbl-green-deep: #042210;
+  --pbl-pink: #ea6194;
+  --pbl-lime-dark: #6f8f00;
+  --pbl-text: var(--pbl-green);
+  --pbl-muted: #5f7a69;
+  --pbl-line: rgba(11, 69, 38, 0.22);
+  --pbl-shadow: rgba(4, 34, 16, 0.22);
+  --pbl-overlay: #fafaf8;
+  --pbl-logo: clamp(120px, 32vw, 176px);
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Outfit', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Full-viewport variants */
+.pb-loader--splash,
+.pb-loader--screen {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483000;
+  padding: 24px 16px;
+  background: var(--pbl-overlay);
+  cursor: progress;
+}
+
+.pb-loader--splash {
+  /* Above a PageLoader fallback that may mount underneath it, so the first
+     load reads as one continuous splash rather than two loaders swapping. */
+  z-index: 2147483001;
+  transition: opacity 0.35s ease, visibility 0s linear 0.35s;
+}
+.pb-loader--splash.is-hidden {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+/* Lock page scroll while the splash covers it */
+html.pb-loading,
+html.pb-loading body {
+  overflow: hidden;
+}
+
+/* Fast loads should never flash a loader: the screen and block variants stay
+   invisible for their first ~180ms and only fade in if still mounted. */
+.pb-loader--screen,
+.pb-loader--block {
+  animation: pb-fade-in 0.3s ease 0.18s both;
+}
+@keyframes pb-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.pb-loader--block {
+  padding: var(--pbl-pad, 3rem) 1rem;
+  --pbl-logo: 72px;
+}
+
+/* ---------- Content column ---------- */
+.pb-loader__content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.pb-loader__logo {
+  display: block;
+  width: var(--pbl-logo);
+  height: var(--pbl-logo);
+  object-fit: contain;
+  user-select: none;
+  -webkit-user-drag: none;
+  filter: drop-shadow(0 10px 18px rgba(11, 69, 38, 0.14));
+  animation: pb-breathe 2.8s ease-in-out infinite;
+  will-change: transform;
+}
+@keyframes pb-breathe {
+  0%, 100% { transform: scale(1); }
+  50%      { transform: scale(1.035); }
+}
+
+/* ---------- Mini court: ball dinks back and forth over a tiny net ---------- */
+.pb-loader__court {
+  position: relative;
+  width: 200px;
+  height: 50px;
+  margin-top: 10px;
+  flex-shrink: 0;
+}
+.pb-loader--block .pb-loader__court {
+  transform: scale(0.85);
+  margin: 0;
+}
+
+.pb-loader__court::before { /* baseline */
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 2px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, transparent, var(--pbl-line) 18%, var(--pbl-line) 82%, transparent);
+}
+.pb-loader__court::after { /* net */
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  width: 2px;
+  height: 12px;
+  margin-left: -1px;
+  border-radius: 2px 2px 0 0;
+  background: var(--pbl-pink);
+  opacity: 0.75;
+}
+
+.pb-loader__paddle {
+  position: absolute;
+  bottom: 6px;
+  width: 22px;
+  height: 37px;
+}
+.pb-loader__paddle--left  { left: 6px; }
+.pb-loader__paddle--right { right: 6px; transform: scaleX(-1); }
+
+.pb-loader__paddle-swing {
+  display: block;
+  width: 100%;
+  height: 100%;
+  transform-origin: 50% 92%; /* pivot at the grip, like a wrist */
+  animation: pb-paddle-swing 3.2s infinite;
+  will-change: transform;
+}
+.pb-loader__paddle--right .pb-loader__paddle-swing { animation-delay: -1.6s; }
+
+.pb-loader__paddle svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  filter: drop-shadow(0 2px 2px rgba(4, 34, 16, 0.18));
+}
+
+/* 0% = contact with the ball. Ready → wind up → swing through → recover. */
+@keyframes pb-paddle-swing {
+  0%   { transform: rotate(8deg);   animation-timing-function: cubic-bezier(0.2, 0.7, 0.3, 1); }
+  14%  { transform: rotate(-14deg); animation-timing-function: ease-in-out; }
+  78%  { transform: rotate(-16deg); animation-timing-function: ease-in-out; }
+  92%  { transform: rotate(-32deg); animation-timing-function: cubic-bezier(0.6, 0, 0.9, 0.5); }
+  100% { transform: rotate(8deg); }
+}
+
+.pb-loader__ball-x {
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  width: 0;
+  height: 100%;
+  animation: pb-rally-x 1.6s cubic-bezier(0.42, 0.12, 0.58, 0.88) infinite alternate;
+  will-change: transform;
+}
+.pb-loader__ball-y {
+  position: absolute;
+  left: -8px;
+  bottom: 0;
+  width: 16px;
+  height: 16px;
+  animation: pb-bounce-y 0.8s infinite;
+  animation-delay: -0.4s;
+  will-change: transform;
+}
+.pb-loader__ball {
+  display: block;
+  width: 16px;
+  height: 16px;
+  transform-origin: 50% 100%;
+  animation: pb-squash 0.8s infinite;
+  animation-delay: -0.4s;
+}
+.pb-loader__ball svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  animation: pb-spin 0.9s linear infinite;
+}
+.pb-loader__shadow {
+  position: absolute;
+  left: -8px;
+  bottom: -3px;
+  width: 16px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--pbl-shadow);
+  animation: pb-shadow 0.8s infinite;
+  animation-delay: -0.4s;
+}
+
+@keyframes pb-rally-x {
+  from { transform: translateX(-62px); }
+  to   { transform: translateX(62px); }
+}
+/* gravity: decelerate going up, accelerate coming down */
+@keyframes pb-bounce-y {
+  0%   { transform: translateY(0);     animation-timing-function: cubic-bezier(0.33, 0.66, 0.66, 1); }
+  50%  { transform: translateY(-28px); animation-timing-function: cubic-bezier(0.33, 0, 0.66, 0.33); }
+  100% { transform: translateY(0); }
+}
+@keyframes pb-squash {
+  0%, 100% { transform: scale(1.18, 0.82); }
+  8%, 92%  { transform: scale(1, 1); }
+}
+@keyframes pb-shadow {
+  0%, 100% { transform: scale(1);    opacity: 0.9; }
+  50%      { transform: scale(0.45); opacity: 0.35; }
+}
+@keyframes pb-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ---------- Message + three dots ---------- */
+.pb-loader__status {
+  margin-top: 18px;
+  min-height: 1.5em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+.pb-loader--block .pb-loader__status { margin-top: 10px; }
+
+.pb-loader__msg {
+  margin: 0;
+  font-size: clamp(14px, 3.6vw, 16px);
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: var(--pbl-text);
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+.pb-loader--block .pb-loader__msg { font-size: 0.85rem; }
+
+.pb-loader__msg.is-swapping {
+  opacity: 0;
+  transform: translateY(4px);
+}
+
+.pb-loader__dots {
+  display: inline-flex;
+  gap: 4px;
+}
+.pb-loader__dots i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--pbl-pink);
+  animation: pb-dot 1.2s ease-in-out infinite;
+}
+.pb-loader__dots i:nth-child(2) { animation-delay: 0.15s; background: var(--pbl-green); }
+.pb-loader__dots i:nth-child(3) { animation-delay: 0.3s;  background: var(--pbl-lime-dark); }
+
+@keyframes pb-dot {
+  0%, 60%, 100% { transform: translateY(0);    opacity: 0.35; }
+  30%           { transform: translateY(-5px); opacity: 1; }
+}
+
+.pb-loader__sub {
+  margin: 6px 0 0;
+  font-size: 13px;
+  color: var(--pbl-muted);
+  min-height: 1.3em;
+}
+
+/* ---------- Dark: inside the admin's .dark scope, or a full-screen loader
+   that knows the admin is about to open in dark mode ---------- */
+.dark .pb-loader,
+.pb-loader.pb-loader--dark {
+  --pbl-text: var(--pb-brand, #7ac231);
+  --pbl-muted: #9bb8a6;
+  --pbl-line: rgba(255, 255, 255, 0.2);
+  --pbl-shadow: rgba(0, 0, 0, 0.45);
+  --pbl-overlay: #0f1216;
+}
+.dark .pb-loader__dots i:nth-child(2),
+.pb-loader--dark .pb-loader__dots i:nth-child(2) { background: #e9f5ee; }
+.dark .pb-loader__paddle svg,
+.pb-loader--dark .pb-loader__paddle svg {
+  filter: drop-shadow(0 0 1px rgba(255, 255, 255, 0.45));
+}
+
+/* ---------- Reduced motion: keep it calm, keep the dots ---------- */
+@media (prefers-reduced-motion: reduce) {
+  .pb-loader__logo,
+  .pb-loader__ball-x,
+  .pb-loader__ball-y,
+  .pb-loader__ball,
+  .pb-loader__ball svg,
+  .pb-loader__shadow,
+  .pb-loader__paddle-swing {
+    animation: none !important;
+  }
+  .pb-loader__ball-x { transform: translateX(-30px); }
+  .pb-loader__dots i { animation-duration: 2s; }
+}
