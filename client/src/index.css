@@ -71,6 +71,32 @@ button {
   min-height: 100svh;
 }
 
+.pb-live-dot {
+  animation: pbLivePulse 2s ease-out infinite;
+}
+
+@keyframes pbLivePulse {
+  0% { box-shadow: 0 0 0 0 rgba(122, 194, 49, 0.7); }
+  70% { box-shadow: 0 0 0 8px rgba(122, 194, 49, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(122, 194, 49, 0); }
+}
+
+.pb-cta { transition: transform 0.2s ease, box-shadow 0.2s ease; }
+.pb-cta:hover { transform: translateY(-2px); }
+
+.pb-court-card { transition: transform 0.25s ease, background-color 0.25s ease, border-color 0.25s ease; }
+.pb-court-card:hover {
+  transform: translateY(-4px);
+  background-color: rgba(255, 255, 255, 0.08) !important;
+  border-color: rgba(122, 194, 49, 0.45) !important;
+}
+.pb-court-arrow { transition: transform 0.25s ease, background-color 0.25s ease; }
+.pb-court-card:hover .pb-court-arrow { transform: rotate(45deg); background-color: #7AC231 !important; }
+
+@media (prefers-reduced-motion: reduce) {
+  .pb-live-dot, .pb-cta, .pb-court-card, .pb-court-arrow { animation: none; transition: none; }
+}
+
 /* The hero slideshow's morph transition is driven from LandingPage.tsx as a
    plain CSS transition (opacity/transform/filter) on the incoming photo,
    layered on top of a base photo that never changes opacity — see
