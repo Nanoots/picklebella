@@ -134,7 +134,11 @@ function DateStrip({ curDate, hours, onPick, isMobile }: { curDate: Date; hours?
     const el = scrollRef.current?.querySelector<HTMLElement>('[data-sel="1"]')
     const wrap = scrollRef.current
     if (!el || !wrap) return
-    const target = el.offsetLeft - wrap.clientWidth / 2 + el.clientWidth / 2
+    // Measure against the strip itself (offsetLeft would be relative to some
+    // outer positioned ancestor and over-scroll, clipping the first card).
+    const elBox = el.getBoundingClientRect()
+    const wrapBox = wrap.getBoundingClientRect()
+    const target = wrap.scrollLeft + (elBox.left - wrapBox.left) - wrap.clientWidth / 2 + elBox.width / 2
     wrap.scrollTo({ left: Math.max(0, target), behavior: 'smooth' })
   }, [curStr, start])
 
@@ -181,7 +185,7 @@ function DateStrip({ curDate, hours, onPick, isMobile }: { curDate: Date; hours?
       <div
         ref={scrollRef}
         className="pb-datestrip"
-        style={{ flex: 1, minWidth: 0, display: 'flex', gap: isMobile ? '6px' : '8px', overflowX: 'auto', scrollbarWidth: 'none', padding: '14px 2px 6px', scrollSnapType: 'x proximity' }}
+        style={{ position: 'relative', flex: 1, minWidth: 0, display: 'flex', gap: isMobile ? '6px' : '8px', overflowX: 'auto', overflowY: 'hidden', scrollbarWidth: 'none', padding: '14px 6px 14px', scrollPaddingInline: '6px' }}
       >
         {days.map((d, i) => {
           const s = dateStr(d)
@@ -240,13 +244,6 @@ function DateStrip({ curDate, hours, onPick, isMobile }: { curDate: Date; hours?
                   boxShadow: sel && !st.closed ? `0 0 0 3px rgba(122,194,49,0.25)` : 'none',
                 }}
               />
-              {/* Ticket-stub notches on the selected day */}
-              {sel && (
-                <>
-                  <span aria-hidden style={{ position: 'absolute', left: '-5px', top: '58%', width: 8, height: 8, borderRadius: '50%', background: 'white' }} />
-                  <span aria-hidden style={{ position: 'absolute', right: '-5px', top: '58%', width: 8, height: 8, borderRadius: '50%', background: 'white' }} />
-                </>
-              )}
             </button>
           )
         })}
@@ -307,6 +304,7 @@ export default function BookingPage({ user, initialCourtId, initialTab, onBack, 
   const [pendingBookingOpen, setPendingBookingOpen] = useState(false)
   const [activeTab, setActiveTab] = useState<Tab>(initialTab ?? 'Book')
   const gridWrapRef = useRef<HTMLDivElement>(null)
+  const dateInputRef = useRef<HTMLInputElement>(null)
   const isMobile = useIsMobile()
   const isNarrow = useIsNarrow()
 
@@ -380,6 +378,17 @@ export default function BookingPage({ user, initialCourtId, initialTab, onBack, 
   function goToDate(value: string) {
     if (!value) return
     setCurDate(new Date(value + 'T00:00:00'))
+  }
+  function openDatePicker() {
+    const input = dateInputRef.current
+    if (!input) return
+    try {
+      input.showPicker()
+    } catch {
+      // Older browsers without showPicker(): focusing + clicking still opens it.
+      input.focus()
+      input.click()
+    }
   }
 
   function slotStatus(hour: number, courtId: string) {
@@ -615,22 +624,31 @@ export default function BookingPage({ user, initialCourtId, initialTab, onBack, 
                         ↺ Today
                       </button>
                     )}
-                    <label
-                      title="Jump to a date"
-                      style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: '5px', background: G_DARK, color: 'white', borderRadius: '999px', padding: '5px 12px', fontSize: '0.72rem', fontWeight: 700, cursor: 'pointer' }}
-                    >
-                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={LIME} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
-                        <rect x="3" y="4" width="18" height="18" rx="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" />
-                      </svg>
-                      {isMobile ? '' : 'Calendar'}
+                    <div style={{ position: 'relative' }}>
+                      <button
+                        type="button"
+                        title="Jump to a date"
+                        onClick={openDatePicker}
+                        style={{ display: 'flex', alignItems: 'center', gap: '6px', background: G_DARK, color: 'white', border: 'none', borderRadius: '999px', padding: '7px 14px', fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer', fontFamily: FONT_BODY }}
+                      >
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={LIME} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                          <rect x="3" y="4" width="18" height="18" rx="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" />
+                        </svg>
+                        {isMobile ? '' : 'Calendar'}
+                      </button>
+                      {/* The real input sits invisibly under the button; the button
+                          opens its native picker via showPicker(). */}
                       <input
+                        ref={dateInputRef}
                         type="date"
                         value={ds}
                         min={todayStr()}
                         onChange={(e) => goToDate(e.target.value)}
-                        style={{ position: 'absolute', inset: 0, opacity: 0, cursor: 'pointer', width: '100%', height: '100%', border: 'none', padding: 0 }}
+                        tabIndex={-1}
+                        aria-hidden
+                        style={{ position: 'absolute', right: 0, bottom: 0, width: '100%', height: '100%', opacity: 0, pointerEvents: 'none', border: 'none', padding: 0 }}
                       />
-                    </label>
+                    </div>
                   </div>
                 </div>
                 <DateStrip curDate={curDate} hours={venue.data?.hours} onPick={setCurDate} isMobile={isMobile} />
