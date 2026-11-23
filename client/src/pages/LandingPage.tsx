@@ -1,83 +1,23 @@
-import { lazy, Suspense, useEffect, useRef, useState } from 'react'
+import { lazy, Suspense } from 'react'
+import {
+  ArrowRight, CalendarCheck, Clock, Coffee, LayoutGrid, Lightbulb, MapPin, Navigation,
+  ParkingSquare, ShoppingBag, Sun, Wallet, Bath,
+} from 'lucide-react'
 import logoImg from '@/imports/opt/logo.webp'
-import heroBadgeImg from '@/imports/opt/logo-hero.webp'
-import heroImg from '@/imports/opt/Court123.webp'
-import heroSlide2 from '@/imports/opt/Court_1_2_3.webp'
+import heroImg from '@/imports/landingimage.jpg'
 import type { User } from '../App'
 import * as api from '../lib/api'
-import type { Court, DayHours, HoursConfig, SiteImages } from '../lib/types'
-import { fmtHour, fmtMoney, todayStr } from '../lib/format'
+import type { Court, DayHours, HoursConfig } from '../lib/types'
+import { fmtHour, fmtMoney } from '../lib/format'
 import { useAsync } from '../lib/useAsync'
-import { useSiteImages } from '../lib/siteImages'
 import { useIsMobile, useIsNarrow } from '../lib/useMediaQuery'
 import { ErrorBlock, LoadingBlock } from '../components/States'
-import { VENUE_MAPS_URL } from '../lib/venue'
+import { VENUE_ADDRESS, VENUE_MAPS_URL } from '../lib/venue'
 import { G_DARK, PINK, LIME, FONT_BODY, FONT_DISPLAY } from '../lib/theme'
 
-// maplibre-gl is heavy — loaded only once this card is actually rendered,
+// Leaflet is heavy — loaded only once the location card actually renders,
 // not folded into the landing page's initial bundle.
 const VenueMapCard = lazy(() => import('../components/VenueMap'))
-
-// Only the two full-color aerial shots of the actual venue — the per-court
-// spotlight images (Court1/2/3, used on the booking page to highlight which
-// court is selected) desaturate the other two courts, which is what was
-// reading as a "gray" flash when they turned up in this rotation.
-// index 0 is the LCP image and stays loaded eagerly; the rest only fetch once
-// the slideshow reaches them. Backgrounds uploaded from the admin Images
-// screen replace these entirely.
-const DEFAULT_HERO_SLIDES = [heroImg, heroSlide2]
-const HERO_SLIDE_HOLD_MS = 8000 // each photo shows fully still for at least this long
-const HERO_MORPH_MS = 1800 // the next photo dissolves in over the base — the base itself never moves
-
-/** Drives the hero background: `index` is the photo shown as a static, fully
- * opaque base layer; `incomingIndex` (while set) is the next photo dissolving
- * in on top of it. Because the base layer never drops below full opacity,
- * the dark hero overlay never shows through mid-transition — the only thing
- * blending is photo over photo. */
-function useHeroSlideshow(count: number) {
-  const [index, setIndex] = useState(0)
-  const [incomingIndex, setIncomingIndex] = useState<number | null>(null)
-  const [morphing, setMorphing] = useState(false)
-  const indexRef = useRef(0)
-  indexRef.current = index
-
-  useEffect(() => {
-    // The slide list can change under us (bundled photos swapped for uploaded
-    // ones once the config lands) — restart from the first rather than point
-    // past the end of a shorter list.
-    setIndex(0)
-    setIncomingIndex(null)
-    setMorphing(false)
-    if (count < 2) return
-    let raf1 = 0
-    let raf2 = 0
-    let settleTimer = 0
-    const hold = setInterval(() => {
-      const next = (indexRef.current + 1) % count
-      setIncomingIndex(next)
-      setMorphing(false)
-      // Mount the incoming photo at its hidden/blurred starting style first,
-      // then flip it to visible a frame later so the CSS transition actually
-      // has a "from" state to animate away from instead of snapping.
-      raf1 = requestAnimationFrame(() => {
-        raf2 = requestAnimationFrame(() => setMorphing(true))
-      })
-      settleTimer = window.setTimeout(() => {
-        setIndex(next)
-        setIncomingIndex(null)
-        setMorphing(false)
-      }, HERO_MORPH_MS)
-    }, HERO_SLIDE_HOLD_MS)
-    return () => {
-      clearInterval(hold)
-      cancelAnimationFrame(raf1)
-      cancelAnimationFrame(raf2)
-      clearTimeout(settleTimer)
-    }
-  }, [count])
-
-  return { index, incomingIndex, morphing }
-}
 
 interface Props {
   user: User | null
@@ -88,133 +28,97 @@ interface Props {
 }
 
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+const MONDAY_FIRST = [1, 2, 3, 4, 5, 6, 0]
 
-// Collapses the weekly schedule into display rows, grouping consecutive days that
-// share the same hours (e.g. "Monday – Friday · 6:00 AM – 10:00 PM").
-function hoursSummary(weekly: DayHours[]) {
-  const order = [1, 2, 3, 4, 5, 6, 0] // Monday-first
-  const rows: { label: string; value: string }[] = []
-  let runStart = 0
+const AMENITIES = [
+  { icon: ParkingSquare, label: 'Free Parking' },
+  { icon: Lightbulb, label: 'Night Lighting' },
+  { icon: Bath, label: 'Restrooms' },
+  { icon: ShoppingBag, label: 'Paddle Rental' },
+  { icon: Coffee, label: 'Refreshments' },
+]
 
-  const valueFor = (dow: number) => {
-    const d = weekly[dow]
-    if (!d) return 'Closed'
-    return d.closed ? 'Closed' : `${fmtHour(d.open)} – ${fmtHour(d.close)}`
-  }
+const INK = '#111827'
+const MUTED = '#6B7280'
+const LINE = '#EEF0EC'
+const TINT = '#F1F8EA' // soft lime wash for highlight panels
 
-  for (let i = 0; i < order.length; i++) {
-    const dow = order[i]!
-    const isLast = i === order.length - 1
-    const sameAsNext = !isLast && valueFor(dow) === valueFor(order[i + 1]!)
-    if (!sameAsNext) {
-      const label = runStart === i
-        ? DAY_NAMES[dow]!
-        : `${DAY_NAMES[order[runStart]!]} – ${DAY_NAMES[dow]!}`
-      rows.push({ label, value: valueFor(dow) })
-      runStart = i + 1
-    }
-  }
-  return rows
+function fmtClose(h: number) {
+  return h === 24 || h === 0 ? 'Midnight' : fmtHour(h)
 }
 
-/** Today's headline figures for one court, shown in the "Live This Week" strip. */
-type CourtToday = { bookedCount: number; nextOpenHour: number | undefined }
-
-async function loadToday(date: string, signal: AbortSignal) {
-  const nowHour = new Date().getHours()
-
-  // One request for all three courts. This strip is decorative — the page is
-  // perfectly usable without it — so a failure resolves to nothing rather than
-  // surfacing an error over the whole section.
-  try {
-    const byCourt = await api.getAvailabilityAll(date, signal)
-    return Object.fromEntries(
-      Object.entries(byCourt).map(([courtId, { slots }]) => {
-        const hours = Object.keys(slots).map(Number).sort((a, b) => a - b)
-        return [
-          courtId,
-          {
-            bookedCount: hours.filter((h) => slots[h] === 'booked').length,
-            nextOpenHour: hours.find((h) => slots[h] === 'available' && h > nowHour),
-          },
-        ]
-      }),
-    ) as Record<string, CourtToday>
-  } catch {
-    return {}
-  }
+function dayValue(d: DayHours | undefined) {
+  if (!d || d.closed) return 'Closed'
+  return `${fmtHour(d.open)} – ${fmtClose(d.close)}`
 }
 
-function SectionHead({ kicker, title, align = 'center' }: { kicker: string; title: React.ReactNode; align?: 'center' | 'left' }) {
+function Card({ children, pad }: { children: React.ReactNode; pad: string }) {
   return (
-    <div style={{ textAlign: align, marginBottom: '2.5rem', maxWidth: align === 'left' ? undefined : '640px', marginLeft: align === 'left' ? undefined : 'auto', marginRight: align === 'left' ? undefined : 'auto' }}>
-      <p style={{ color: PINK, fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', margin: '0 0 0.6rem' }}>{kicker}</p>
-      <h2 style={{ fontFamily: FONT_DISPLAY, color: '#111827', fontSize: 'clamp(1.6rem, 4vw, 2.4rem)', fontWeight: 700, margin: 0, lineHeight: 1.15 }}>{title}</h2>
+    <div style={{ backgroundColor: 'white', border: `1px solid ${LINE}`, borderRadius: '18px', padding: pad, boxShadow: '0 1px 3px rgba(15,58,28,0.04)' }}>
+      {children}
+    </div>
+  )
+}
+
+function CardHead({ icon: Icon, title, sub }: { icon: typeof Clock; title: string; sub?: string }) {
+  return (
+    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-start', marginBottom: '1.25rem' }}>
+      <Icon size={24} strokeWidth={1.75} color={G_DARK} style={{ flexShrink: 0, marginTop: '2px' }} />
+      <div style={{ minWidth: 0 }}>
+        <h2 style={{ fontFamily: FONT_DISPLAY, color: INK, fontSize: '1.35rem', fontWeight: 700, margin: 0, lineHeight: 1.2 }}>{title}</h2>
+        {sub && <p style={{ color: MUTED, fontSize: '0.88rem', lineHeight: 1.55, margin: '0.3rem 0 0' }}>{sub}</p>}
+      </div>
     </div>
   )
 }
 
 export default function LandingPage({ user, onReserve, onSignIn, onSignOut, onAdminSignIn }: Props) {
-  const today = todayStr()
   const isMobile = useIsMobile()
   const isNarrow = useIsNarrow()
 
-  const venue = useAsync<{ courts: Court[]; hours: HoursConfig; images?: SiteImages }>(async (signal) => {
+  const venue = useAsync<{ courts: Court[]; hours: HoursConfig }>(async (signal) => {
     const [courts, config] = await Promise.all([api.getCourts(signal), api.getConfig(signal)])
-    return { courts, hours: config.hours, images: config.images }
+    return { courts, hours: config.hours }
   }, [])
 
-  const siteImages = useSiteImages(venue.data?.images)
-  const uploadedHero = siteImages.hero.map((i) => i.url)
-  const HERO_SLIDES = uploadedHero.length ? uploadedHero : DEFAULT_HERO_SLIDES
-  const heroSlideshow = useHeroSlideshow(HERO_SLIDES.length)
-
   const COURTS = venue.data?.courts ?? []
-
-  // Loaded separately so the page renders as soon as the courts are known —
-  // today's occupancy is a nice-to-have, not something worth blocking on.
-  const todayStats = useAsync<Record<string, CourtToday>>(
-    (signal) => loadToday(today, signal),
-    [today],
-  )
-
   const MIN_RATE = COURTS.length ? Math.min(...COURTS.map((c) => c.rate)) : 0
   const MAX_RATE = COURTS.length ? Math.max(...COURTS.map((c) => c.rate)) : 0
-  const hourRows = venue.data ? hoursSummary(venue.data.hours.weekly) : []
-  const openRow = hourRows.find((r) => r.value !== 'Closed')
+  const rateText = !venue.data ? '—' : MIN_RATE === MAX_RATE ? fmtMoney(MIN_RATE) : `${fmtMoney(MIN_RATE)} – ${fmtMoney(MAX_RATE)}`
+  const allOutdoor = COURTS.length > 0 && COURTS.every((c) => c.type === 'Outdoor')
+  const allIndoor = COURTS.length > 0 && COURTS.every((c) => c.type === 'Indoor')
+  const envLabel = allOutdoor ? 'Outdoor' : allIndoor ? 'Indoor' : 'Indoor & Outdoor'
+  const weekly = venue.data?.hours.weekly
+
+  const gutter = isMobile ? '1rem' : '1.5rem'
+  const cardPad = isMobile ? '1.25rem' : '1.75rem'
+
+  const btnBase: React.CSSProperties = {
+    display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '0.55rem',
+    borderRadius: '12px', fontFamily: FONT_BODY, fontWeight: 700, cursor: 'pointer', textDecoration: 'none',
+    fontSize: isMobile ? '0.95rem' : '1.02rem', padding: isMobile ? '0.85rem 1.25rem' : '0.95rem 1.6rem',
+  }
 
   return (
-    <div style={{ fontFamily: FONT_BODY, minHeight: '100vh', display: 'flex', flexDirection: 'column', backgroundColor: '#FAFAF8' }}>
+    <div style={{ fontFamily: FONT_BODY, minHeight: '100vh', display: 'flex', flexDirection: 'column', backgroundColor: '#F7F8F5' }}>
 
       {/* NAV */}
-      <nav style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 50, backgroundColor: G_DARK }}>
-        <div style={{ maxWidth: '1200px', margin: '0 auto', padding: isMobile ? '0 1rem' : '0 1.5rem', height: isMobile ? '58px' : '64px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem' }}>
+      <nav style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 50, backgroundColor: G_DARK, boxShadow: '0 2px 12px rgba(0,0,0,0.18)' }}>
+        <div style={{ maxWidth: '1200px', margin: '0 auto', padding: `0 ${gutter}`, height: isMobile ? '58px' : '64px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
             <img src={logoImg} alt="PickleBella Park" style={{ height: isMobile ? '32px' : '40px', width: isMobile ? '32px' : '40px', borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
-            <span style={{ fontFamily: FONT_DISPLAY, color: 'white', fontWeight: 700, fontSize: isMobile ? '1rem' : '1.1rem', letterSpacing: '-0.01em' }}>
-              PickleBella
-            </span>
+            <span style={{ fontFamily: FONT_DISPLAY, color: 'white', fontWeight: 700, fontSize: isMobile ? '1rem' : '1.1rem', letterSpacing: '-0.01em' }}>PickleBella</span>
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '0.4rem' : '0.75rem', flexShrink: 0 }}>
             {user ? (
               <>
-                {!isMobile && (
-                  <span style={{ color: 'rgba(255,255,255,0.65)', fontSize: '0.85rem' }}>
-                    Hi, {user.name.split(' ')[0]}
-                  </span>
-                )}
+                {!isMobile && <span style={{ color: 'rgba(255,255,255,0.65)', fontSize: '0.85rem' }}>Hi, {user.name.split(' ')[0]}</span>}
                 <button
                   onClick={onSignOut}
-                  style={{ color: 'rgba(255,255,255,0.7)', background: 'none', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '999px', padding: isMobile ? '0.4rem 0.7rem' : '0.4rem 1rem', fontSize: isMobile ? '0.75rem' : '0.8rem', cursor: 'pointer', fontFamily: FONT_BODY, whiteSpace: 'nowrap' }}
+                  style={{ color: 'rgba(255,255,255,0.75)', background: 'none', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '999px', padding: isMobile ? '0.4rem 0.7rem' : '0.4rem 1rem', fontSize: isMobile ? '0.75rem' : '0.8rem', cursor: 'pointer', fontFamily: FONT_BODY, whiteSpace: 'nowrap' }}
                 >
                   Sign Out
-                </button>
-                <button
-                  onClick={() => onReserve()}
-                  style={{ backgroundColor: PINK, color: 'white', border: 'none', borderRadius: '999px', padding: isMobile ? '0.45rem 0.9rem' : '0.5rem 1.25rem', fontSize: isMobile ? '0.78rem' : '0.85rem', fontWeight: 600, cursor: 'pointer', fontFamily: FONT_BODY, whiteSpace: 'nowrap' }}
-                >
-                  Book Now
                 </button>
               </>
             ) : (
@@ -225,333 +129,212 @@ export default function LandingPage({ user, onReserve, onSignIn, onSignOut, onAd
                 Sign In
               </button>
             )}
+            <button
+              onClick={() => onReserve()}
+              style={{ backgroundColor: PINK, color: 'white', border: 'none', borderRadius: '999px', padding: isMobile ? '0.45rem 0.9rem' : '0.5rem 1.25rem', fontSize: isMobile ? '0.78rem' : '0.85rem', fontWeight: 600, cursor: 'pointer', fontFamily: FONT_BODY, whiteSpace: 'nowrap' }}
+            >
+              Book Now
+            </button>
           </div>
         </div>
       </nav>
 
       {/* HERO */}
-      <section className="pb-hero" style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
-        {/* Bundled, not hot-linked. The CSP this site ships with is
-            `img-src 'self' data: blob:`, so a remote image URL is blocked
-            outright in production and the hero renders as a bare gradient. */}
+      <section style={{ position: 'relative', overflow: 'hidden', backgroundColor: G_DARK, marginTop: isMobile ? '58px' : '64px' }}>
         <img
-          src={HERO_SLIDES[heroSlideshow.index]}
-          alt="PickleBella Park pickleball courts"
+          src={heroImg}
+          alt="Players rallying on an outdoor pickleball court"
           fetchPriority="high"
           decoding="async"
-          style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }}
+          style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: isMobile ? '62% center' : 'center 40%' }}
         />
-        {heroSlideshow.incomingIndex !== null && (
-          <img
-            src={HERO_SLIDES[heroSlideshow.incomingIndex]}
-            alt=""
-            decoding="async"
-            style={{
-              position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover',
-              opacity: heroSlideshow.morphing ? 1 : 0,
-              transform: heroSlideshow.morphing ? 'scale(1)' : 'scale(1.05)',
-              filter: heroSlideshow.morphing ? 'blur(0px)' : 'blur(10px)',
-              transition: `opacity ${HERO_MORPH_MS}ms ease-in-out, transform ${HERO_MORPH_MS}ms ease-in-out, filter ${HERO_MORPH_MS}ms ease-in-out`,
-            }}
-          />
-        )}
-        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(155deg, rgba(8,24,12,0.65) 0%, rgba(8,24,12,0.82) 100%)' }} />
+        <div
+          style={{
+            position: 'absolute', inset: 0,
+            background: isMobile
+              ? 'linear-gradient(180deg, rgba(8,24,12,0.55) 0%, rgba(8,24,12,0.88) 100%)'
+              : 'linear-gradient(90deg, rgba(8,24,12,0.94) 0%, rgba(8,24,12,0.78) 38%, rgba(8,24,12,0.25) 75%, rgba(8,24,12,0.1) 100%)',
+          }}
+        />
 
-        <div style={{ position: 'relative', zIndex: 1, textAlign: 'center', padding: isMobile ? '4rem 1.25rem 3.5rem' : '4.5rem 1.5rem 3rem', maxWidth: '700px', margin: '0 auto', width: '100%' }}>
-          <p style={{ color: LIME, fontSize: isMobile ? '0.68rem' : '0.75rem', fontWeight: 700, letterSpacing: isMobile ? '0.16em' : '0.2em', textTransform: 'uppercase', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', flexWrap: 'nowrap' }}>
-            <span style={{ display: 'inline-block', width: isMobile ? '14px' : '24px', height: '1px', backgroundColor: LIME, flexShrink: 0 }} />
-            <span style={{ minWidth: 0 }}>PickleBella Park · 3 Courts</span>
-            <span style={{ display: 'inline-block', width: isMobile ? '14px' : '24px', height: '1px', backgroundColor: LIME, flexShrink: 0 }} />
+        <div style={{ position: 'relative', zIndex: 1, maxWidth: '1200px', margin: '0 auto', padding: isMobile ? `3.25rem ${gutter} 2.75rem` : `5rem ${gutter} 4.5rem` }}>
+          <h1 style={{ fontFamily: FONT_DISPLAY, color: 'white', fontSize: 'clamp(2.2rem, 6vw, 3.6rem)', fontWeight: 700, margin: 0, lineHeight: 1.05, letterSpacing: '-0.02em' }}>
+            PickleBella Park
+          </h1>
+          <p style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', color: 'rgba(255,255,255,0.85)', fontSize: isMobile ? '1rem' : '1.15rem', margin: '0.8rem 0 1.4rem' }}>
+            <MapPin size={20} fill="white" color={G_DARK} style={{ flexShrink: 0 }} />
+            Isulan, Sultan Kudarat
           </p>
 
-          <h1 style={{ position: 'absolute', width: 1, height: 1, padding: 0, margin: -1, overflow: 'hidden', clip: 'rect(0,0,0,0)', whiteSpace: 'nowrap', border: 0 }}>
-            PickleBella Park — Dink. Smash. Enjoy.
-          </h1>
-
-          <div style={{ position: 'relative', display: 'inline-block', margin: '0 0 1.75rem' }} aria-hidden="true">
-            <div style={{ position: 'absolute', inset: '8%', borderRadius: '50%', background: `radial-gradient(circle, ${PINK}55 0%, ${LIME}33 55%, transparent 75%)`, filter: 'blur(18px)', zIndex: 0 }} />
-            <img
-              src={heroBadgeImg}
-              alt=""
-              decoding="async"
-              style={{ position: 'relative', zIndex: 1, width: isMobile ? '150px' : 'clamp(170px, 16vw, 230px)', height: isMobile ? '150px' : 'clamp(170px, 16vw, 230px)', display: 'block', filter: 'drop-shadow(0 10px 30px rgba(0,0,0,0.35))' }}
-            />
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.6rem', marginBottom: isMobile ? '1.75rem' : '2.25rem' }}>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.45rem', padding: '0.45rem 0.95rem', borderRadius: '999px', border: `1px solid ${LIME}`, backgroundColor: 'rgba(122,194,49,0.14)', color: 'white', fontSize: '0.88rem', fontWeight: 500 }}>
+              <Sun size={16} color={LIME} /> {venue.data ? envLabel : 'Outdoor'} Pickleball
+            </span>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.45rem', padding: '0.45rem 0.95rem', borderRadius: '999px', border: '1px solid rgba(255,255,255,0.35)', color: 'white', fontSize: '0.88rem', fontWeight: 500 }}>
+              <LayoutGrid size={16} /> {venue.data ? `${COURTS.length} Court${COURTS.length === 1 ? '' : 's'}` : 'Courts'}
+            </span>
           </div>
 
-          <p style={{ color: 'rgba(255,255,255,0.68)', fontSize: 'clamp(0.95rem, 2.5vw, 1.15rem)', lineHeight: 1.7, margin: '0 auto 2.25rem', maxWidth: '440px' }}>
-            Book your court at PickleBella Park — 3 professional pickleball courts nestled in one beautiful outdoor venue.
-          </p>
-
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem' }}>
             <button
               onClick={() => onReserve()}
-              style={{ backgroundColor: PINK, color: 'white', border: 'none', borderRadius: '999px', padding: isMobile ? '1rem 2.5rem' : '1.05rem 3rem', fontSize: isMobile ? '1rem' : '1.05rem', fontWeight: 600, cursor: 'pointer', fontFamily: FONT_BODY, letterSpacing: '0.01em', maxWidth: '100%', transition: 'background-color 0.2s' }}
-              onMouseEnter={e => { e.currentTarget.style.backgroundColor = '#C31468' }}
-              onMouseLeave={e => { e.currentTarget.style.backgroundColor = PINK }}
+              style={{ ...btnBase, backgroundColor: PINK, color: 'white', border: 'none', boxShadow: '0 8px 24px rgba(232,24,122,0.35)' }}
             >
-              Reserve a Court
+              <CalendarCheck size={20} /> Book a Court <ArrowRight size={18} />
             </button>
-          </div>
-        </div>
-
-        <div style={{ position: 'absolute', bottom: '2.5rem', left: '50%', transform: 'translateX(-50%)', opacity: 0.35, display: isMobile ? 'none' : 'block' }}>
-          <div style={{ width: '1px', height: '40px', background: 'linear-gradient(to bottom, transparent, white)', margin: '0 auto' }} />
-        </div>
-      </section>
-
-      {/* STATS STRIP */}
-      <div style={{ backgroundColor: G_DARK, padding: isMobile ? '1.5rem 1rem' : '1.5rem' }}>
-        <div style={{ maxWidth: '1200px', margin: '0 auto', display: 'flex', justifyContent: 'center', gap: isMobile ? '1.5rem 1.25rem' : 'clamp(2rem, 8vw, 6rem)', flexWrap: 'wrap' }}>
-          {[
-            { num: venue.data ? String(COURTS.length) : '—', label: 'Professional Courts' },
-            {
-              num: !venue.data
-                ? '—'
-                : MIN_RATE === MAX_RATE
-                  ? fmtMoney(MIN_RATE)
-                  : `${fmtMoney(MIN_RATE)}–${fmtMoney(MAX_RATE)}`,
-              label: 'Per Hour · Per Court',
-            },
-            { num: !venue.data ? '—' : openRow ? openRow.value : 'Closed', label: hourRows.length === 1 ? 'Open Everyday' : 'Typical Hours' },
-          ].map(stat => (
-            <div key={stat.label} style={{ textAlign: 'center', flex: isMobile ? '1 1 30%' : '0 0 auto', minWidth: 0 }}>
-              <p style={{ fontFamily: FONT_DISPLAY, color: 'white', fontSize: isMobile ? '1.15rem' : '1.5rem', fontWeight: 700, margin: 0, overflowWrap: 'break-word' }}>{stat.num}</p>
-              <p style={{ color: 'rgba(255,255,255,0.38)', fontSize: isMobile ? '0.6rem' : '0.68rem', fontWeight: 500, letterSpacing: '0.08em', margin: '3px 0 0', textTransform: 'uppercase' }}>{stat.label}</p>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* LIVE THIS WEEK */}
-      <section style={{ padding: isMobile ? '2.75rem 1.1rem' : '4rem 1.5rem' }}>
-        <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
-          <SectionHead kicker="Live This Week" align="left" title={<>Court highlights at <span style={{ color: PINK }}>PickleBella</span></>} />
-          {venue.loading && <LoadingBlock label="Loading courts…" />}
-          {venue.error && <ErrorBlock message={venue.error} onRetry={venue.reload} />}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem' }}>
-            {COURTS.map((c) => {
-              const stats = todayStats.data?.[c.id]
-              const bookedCount = stats?.bookedCount ?? 0
-              const nextOpenHour = stats?.nextOpenHour
-              return (
-                <div key={c.id} style={{ background: c.color, borderRadius: '16px', padding: '1.5rem', color: 'white' }}>
-                  <span style={{ backgroundColor: 'rgba(255,255,255,0.15)', fontSize: '0.65rem', fontWeight: 700, padding: '3px 9px', borderRadius: '999px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{c.type}</span>
-                  <h4 style={{ fontFamily: FONT_DISPLAY, fontSize: '1.1rem', fontWeight: 700, margin: '0.75rem 0 0.5rem' }}>{c.name} · {fmtMoney(c.rate)}/hr</h4>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', fontSize: '0.78rem', color: 'rgba(255,255,255,0.7)' }}>
-                    {todayStats.loading ? (
-                      <span>Checking today…</span>
-                    ) : (
-                      <>
-                        <span>{bookedCount} booking{bookedCount === 1 ? '' : 's'} today</span>
-                        <span>{nextOpenHour !== undefined ? `Next: ${fmtHour(nextOpenHour)}` : 'Fully booked'}</span>
-                      </>
-                    )}
-                  </div>
-                </div>
-              )
-            })}
-            <div style={{ background: `linear-gradient(160deg, ${PINK}, #B8135F)`, borderRadius: '16px', padding: '1.5rem', color: 'white' }}>
-              <span style={{ backgroundColor: 'rgba(255,255,255,0.18)', fontSize: '0.65rem', fontWeight: 700, padding: '3px 9px', borderRadius: '999px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>This Weekend</span>
-              <h4 style={{ fontFamily: FONT_DISPLAY, fontSize: '1.1rem', fontWeight: 700, margin: '0.75rem 0 0.5rem' }}>Open Play Saturdays</h4>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', fontSize: '0.78rem', color: 'rgba(255,255,255,0.8)' }}>
-                <span>All levels welcome</span>
-                <span>9:00 AM</span>
-              </div>
-            </div>
+            <a
+              href={VENUE_MAPS_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ ...btnBase, backgroundColor: 'rgba(255,255,255,0.06)', color: 'white', border: '1.5px solid rgba(255,255,255,0.6)' }}
+            >
+              <Navigation size={18} /> Get Directions
+            </a>
           </div>
         </div>
       </section>
 
-      {/* MADE FOR EVERY PLAYER */}
-      <section style={{ backgroundColor: G_DARK, padding: isMobile ? '2.75rem 1.1rem' : '4rem 1.5rem' }}>
-        <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
-          <p style={{ color: LIME, fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', textAlign: 'center', margin: '0 0 0.6rem' }}>Made For Every Player</p>
-          <h2 style={{ fontFamily: FONT_DISPLAY, color: 'white', fontSize: 'clamp(1.6rem, 4vw, 2.4rem)', fontWeight: 700, textAlign: 'center', margin: '0 0 2.5rem', lineHeight: 1.15 }}>
-            However you play — <span style={{ color: LIME }}>there's a court for you</span>
-          </h2>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1.25rem' }}>
-            {[
-              { ic: '🥒', h: 'Book a Court', p: 'Reserve any of our 3 courts online in seconds — pick your date, time, and go.' },
-              { ic: '👥', h: 'Bring Your Crew', p: 'Rally up to 8 players per booking. Great for casual games, birthdays, or team nights.' },
-              { ic: '🏆', h: 'All Skill Levels', p: 'Beginner or pro, our courts and gear rentals are built to welcome every level of play.' },
-            ].map((v) => (
-              <div key={v.h} style={{ backgroundColor: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '16px', padding: '1.75rem' }}>
-                <div style={{ fontSize: '1.6rem', marginBottom: '0.75rem' }}>{v.ic}</div>
-                <h4 style={{ color: 'white', fontSize: '1rem', fontWeight: 700, margin: '0 0 0.5rem' }}>{v.h}</h4>
-                <p style={{ color: 'rgba(255,255,255,0.55)', fontSize: '0.85rem', lineHeight: 1.6, margin: 0 }}>{v.p}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
+      {/* BODY */}
+      <main style={{ flex: 1, width: '100%', maxWidth: '1200px', margin: '0 auto', padding: isMobile ? `1.5rem ${gutter} 2.5rem` : `2.5rem ${gutter} 4rem`, boxSizing: 'border-box' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: isNarrow ? 'minmax(0,1fr)' : 'minmax(0,1.75fr) minmax(0,1fr)', gap: isMobile ? '1rem' : '1.5rem', alignItems: 'start' }}>
 
-      {/* HOW IT WORKS */}
-      <section id="how" style={{ padding: isMobile ? '3rem 1.1rem' : '4.5rem 1.5rem' }}>
-        <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
-          <SectionHead kicker="Simple Booking" title="How booking works" />
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '2rem' }}>
-            {[
-              { n: '01', ic: '📍', tag: 'Discover', h: 'Pick a court & time', p: 'See live availability across all 3 courts on one grid — pick whatever fits your schedule.' },
-              { n: '02', ic: '🔐', tag: 'Sign In', h: 'Create your account', p: 'Quick sign up with your name, phone, and email — takes under a minute.' },
-              { n: '03', ic: '🏓', tag: 'Play', h: 'Pay & show up', p: 'Pay securely online via GCash, Maya, or QR Ph, then just grab your paddle and play.' },
-            ].map((s) => (
-              <div key={s.n}>
-                <span style={{ fontFamily: FONT_DISPLAY, fontSize: '2.5rem', fontWeight: 700, color: '#E5E7EB' }}>{s.n}</span>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', margin: '0.5rem 0' }}>
-                  <span>{s.ic}</span>
-                  <span style={{ color: PINK, fontSize: '0.72rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em' }}>{s.tag}</span>
-                </div>
-                <h4 style={{ fontFamily: FONT_DISPLAY, color: '#111827', fontSize: '1.15rem', fontWeight: 700, margin: '0 0 0.5rem' }}>{s.h}</h4>
-                <p style={{ color: '#6B7280', fontSize: '0.85rem', lineHeight: 1.65, margin: 0 }}>{s.p}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* COURTS */}
-      <section id="courts" style={{ backgroundColor: '#F3F4F6', padding: isMobile ? '3rem 1.1rem' : '4.5rem 1.5rem' }}>
-        <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
-          <SectionHead
-            kicker="Our Courts"
-            title={venue.data ? `${COURTS.length} courts, every style of play` : 'Every style of play'}
-          />
-          {venue.loading && <LoadingBlock label="Loading courts…" />}
-          {venue.error && <ErrorBlock message={venue.error} onRetry={venue.reload} />}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '1.5rem' }}>
-            {COURTS.map((c) => (
-              <div key={c.id} style={{ backgroundColor: 'white', borderRadius: '18px', overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
-                <div style={{ background: c.color, height: '140px', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <span style={{ position: 'absolute', top: '0.875rem', left: '0.875rem', backgroundColor: 'rgba(255,255,255,0.18)', color: 'white', fontSize: '0.65rem', fontWeight: 700, padding: '3px 9px', borderRadius: '999px', textTransform: 'uppercase' }}>{c.type}</span>
-                  <span style={{ fontSize: '2.5rem' }}>{c.emoji}</span>
-                  <span style={{ position: 'absolute', bottom: '0.875rem', right: '0.875rem', backgroundColor: 'white', color: G_DARK, fontSize: '0.72rem', fontWeight: 700, padding: '4px 10px', borderRadius: '999px' }}>{fmtMoney(c.rate)}/hr</span>
-                </div>
-                <div style={{ padding: '1.25rem' }}>
-                  <h3 style={{ fontFamily: FONT_DISPLAY, fontSize: '1.1rem', fontWeight: 700, color: '#111827', margin: '0 0 0.25rem' }}>{c.name}</h3>
-                  <p style={{ color: '#9CA3AF', fontSize: '0.8rem', margin: '0 0 0.75rem' }}>{c.surface}</p>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', marginBottom: '1.25rem' }}>
-                    {c.feats.map((f) => (
-                      <span key={f} style={{ backgroundColor: '#F3F4F6', color: '#374151', fontSize: '0.7rem', fontWeight: 500, padding: '3px 9px', borderRadius: '999px' }}>{f}</span>
-                    ))}
-                  </div>
-                  <button
-                    onClick={() => onReserve(c.id)}
-                    style={{ width: '100%', backgroundColor: G_DARK, color: 'white', border: 'none', borderRadius: '999px', padding: '0.75rem', fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer', fontFamily: FONT_BODY }}
-                  >
-                    Book {c.name} →
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* AMENITIES */}
-      <section id="amenities" style={{ backgroundColor: G_DARK, padding: isMobile ? '3rem 1.1rem' : '4.5rem 1.5rem' }}>
-        <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
-          <p style={{ color: LIME, fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', textAlign: 'center', margin: '0 0 0.6rem' }}>What We Offer</p>
-          <h2 style={{ fontFamily: FONT_DISPLAY, color: 'white', fontSize: 'clamp(1.6rem, 4vw, 2.4rem)', fontWeight: 700, textAlign: 'center', margin: '0 0 2.5rem' }}>Everything you need for a great game</h2>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1.25rem' }}>
-            {[
-              { ic: '💡', h: 'Pro Lighting', p: 'Bright, even lighting for day and night games.' },
-              { ic: '🚻', h: 'Restrooms', p: 'Clean restrooms and shower area on site.' },
-              { ic: '🅿️', h: 'Free Parking', p: 'Plenty of parking space right outside the courts.' },
-              { ic: '🛍️', h: 'Pro Shop', p: 'Paddles, balls, and gear available for rent or sale.' },
-            ].map((v) => (
-              <div key={v.h} style={{ backgroundColor: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '16px', padding: '1.5rem' }}>
-                <div style={{ fontSize: '1.4rem', marginBottom: '0.625rem' }}>{v.ic}</div>
-                <h4 style={{ color: 'white', fontSize: '0.95rem', fontWeight: 700, margin: '0 0 0.4rem' }}>{v.h}</h4>
-                <p style={{ color: 'rgba(255,255,255,0.55)', fontSize: '0.8rem', lineHeight: 1.6, margin: 0 }}>{v.p}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* VISIT US */}
-      <section id="visit" style={{ padding: isMobile ? '3rem 1.1rem' : '4.5rem 1.5rem' }}>
-        <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
-          <SectionHead kicker="Visit Us" title="Location & operating hours" />
-          <div style={{ display: 'grid', gridTemplateColumns: isNarrow ? 'minmax(0,1fr)' : 'minmax(0,1.1fr) minmax(0,1fr)', gap: '2rem', alignItems: 'center' }}>
-            <div style={{ borderRadius: '18px', overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
-              <Suspense fallback={<div style={{ height: isMobile ? 190 : 260, backgroundColor: '#F3F4F6' }} />}>
-                <VenueMapCard height={isMobile ? 190 : 260} />
-              </Suspense>
-            </div>
-            <div>
-              {venue.loading && <LoadingBlock label="Loading hours…" pad="1.5rem" />}
+          {/* LEFT COLUMN */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: isMobile ? '1rem' : '1.5rem', minWidth: 0 }}>
+            <Card pad={cardPad}>
+              <CardHead icon={LayoutGrid} title="Courts & Rates" sub="Standard hourly rate per court. Peak hours may be priced differently — the booking screen always shows the exact amount." />
+              {venue.loading && <LoadingBlock label="Loading courts…" pad="1.5rem" />}
               {venue.error && <ErrorBlock message={venue.error} onRetry={venue.reload} pad="1.25rem" />}
-              <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '1.5rem' }}>
-                <tbody>
-                  {hourRows.map((row) => (
-                    <tr key={row.label} style={{ borderBottom: '1px solid #F3F4F6' }}>
-                      <td style={{ padding: '0.75rem 0', color: '#6B7280', fontSize: '0.85rem' }}>{row.label}</td>
-                      <td style={{ padding: '0.75rem 0', color: row.value === 'Closed' ? '#DC2626' : '#111827', fontWeight: 700, fontSize: '0.85rem', textAlign: 'right' }}>{row.value}</td>
-                    </tr>
+              {venue.data && (
+                <div style={{ border: `1px solid ${LINE}`, borderRadius: '12px', overflow: 'hidden' }}>
+                  {!isMobile && (
+                    <div style={{ display: 'grid', gridTemplateColumns: '1.1fr 1fr 1.3fr auto', gap: '1rem', padding: '0.75rem 1.1rem', backgroundColor: '#FAFBF8', color: MUTED, fontSize: '0.8rem', fontWeight: 500 }}>
+                      <span>Court</span><span>Setting</span><span>Surface</span><span>Rate</span>
+                    </div>
+                  )}
+                  {COURTS.map((c, i) => (
+                    <button
+                      key={c.id}
+                      onClick={() => onReserve(c.id)}
+                      title={`Book ${c.name}`}
+                      style={{
+                        display: 'grid', width: '100%', textAlign: 'left', background: 'white', border: 'none', cursor: 'pointer', fontFamily: FONT_BODY,
+                        borderTop: i === 0 && isMobile ? 'none' : `1px solid ${LINE}`,
+                        gridTemplateColumns: isMobile ? '1fr auto' : '1.1fr 1fr 1.3fr auto',
+                        gap: isMobile ? '0.2rem 1rem' : '1rem', alignItems: 'center',
+                        padding: isMobile ? '0.9rem 1rem' : '1rem 1.1rem',
+                      }}
+                    >
+                      <span style={{ color: INK, fontWeight: 700, fontSize: '0.95rem' }}>{c.name}</span>
+                      {isMobile ? (
+                        <>
+                          <span style={{ color: INK, fontWeight: 700, fontSize: '0.92rem', textAlign: 'right' }}>{fmtMoney(c.rate)} / hour</span>
+                          <span style={{ color: MUTED, fontSize: '0.8rem', gridColumn: '1 / -1', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                            <Sun size={14} /> {c.type} · {c.surface}
+                          </span>
+                        </>
+                      ) : (
+                        <>
+                          <span style={{ color: MUTED, fontSize: '0.92rem', display: 'flex', alignItems: 'center', gap: '0.45rem' }}><Sun size={16} /> {c.type}</span>
+                          <span style={{ color: MUTED, fontSize: '0.92rem' }}>{c.surface}</span>
+                          <span style={{ color: INK, fontWeight: 700, fontSize: '0.95rem', whiteSpace: 'nowrap' }}>{fmtMoney(c.rate)} / hour</span>
+                        </>
+                      )}
+                    </button>
                   ))}
-                </tbody>
-              </table>
-              <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
-                <button onClick={() => onReserve()} style={{ backgroundColor: PINK, color: 'white', border: 'none', borderRadius: '999px', padding: '0.75rem 1.5rem', fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer', fontFamily: FONT_BODY }}>Book a Court →</button>
-                <a href="tel:+639171234567" style={{ backgroundColor: 'white', color: '#111827', border: '1.5px solid #E5E7EB', borderRadius: '999px', padding: '0.75rem 1.5rem', fontSize: '0.85rem', fontWeight: 600, textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}>📞 (0917) 123-4567</a>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
+                </div>
+              )}
+            </Card>
 
-      {/* FINAL CTA */}
-      <section style={{ backgroundColor: G_DARK, padding: isMobile ? '3rem 1.1rem' : '4.5rem 1.5rem', textAlign: 'center' }}>
-        <h2 style={{ fontFamily: FONT_DISPLAY, color: 'white', fontSize: 'clamp(1.7rem, 4.5vw, 2.6rem)', fontWeight: 700, margin: '0 0 1.75rem', lineHeight: 1.2 }}>
-          More games. Less waiting.<br /><span style={{ color: LIME }}>Book your court now.</span>
-        </h2>
-        <button
-          onClick={() => onReserve()}
-          style={{ backgroundColor: LIME, color: G_DARK, border: 'none', borderRadius: '999px', padding: '1rem 2.75rem', fontSize: '1rem', fontWeight: 700, cursor: 'pointer', fontFamily: FONT_BODY }}
-        >
-          Book a Court →
-        </button>
-      </section>
+            <Card pad={cardPad}>
+              <CardHead icon={Lightbulb} title="Amenities" />
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem 1.5rem' }}>
+                {AMENITIES.map(({ icon: Icon, label }) => (
+                  <span key={label} style={{ display: 'inline-flex', alignItems: 'center', gap: '0.6rem', color: INK, fontSize: '0.95rem' }}>
+                    <span style={{ width: '36px', height: '36px', borderRadius: '10px', backgroundColor: TINT, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      <Icon size={18} color={G_DARK} />
+                    </span>
+                    {label}
+                  </span>
+                ))}
+              </div>
+            </Card>
+
+            <Card pad={cardPad}>
+              <CardHead icon={MapPin} title="Location" sub={VENUE_ADDRESS} />
+              <div style={{ borderRadius: '12px', overflow: 'hidden', border: `1px solid ${LINE}`, marginBottom: '1.1rem' }}>
+                <Suspense fallback={<div style={{ height: isMobile ? 200 : 260, backgroundColor: '#F3F4F6' }} />}>
+                  <VenueMapCard height={isMobile ? 200 : 260} />
+                </Suspense>
+              </div>
+              <a
+                href={VENUE_MAPS_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ ...btnBase, fontSize: '0.92rem', padding: '0.7rem 1.2rem', backgroundColor: 'white', color: INK, border: '1.5px solid #E2E5DE' }}
+              >
+                <Navigation size={16} /> Get Directions <ArrowRight size={16} />
+              </a>
+            </Card>
+          </div>
+
+          {/* RIGHT COLUMN */}
+          <aside style={{ display: 'flex', flexDirection: 'column', gap: isMobile ? '1rem' : '1.5rem', minWidth: 0, position: isNarrow ? 'static' : 'sticky', top: '88px' }}>
+            <Card pad={cardPad}>
+              <CardHead icon={CalendarCheck} title="Ready to Play?" sub="Pick a time, pay online, and your court is locked in." />
+              <div style={{ backgroundColor: TINT, borderRadius: '12px', padding: '0.25rem 1.1rem', marginBottom: '1.1rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.85rem 0', borderBottom: '1px solid rgba(15,58,28,0.08)', color: INK, fontWeight: 600 }}>
+                  <LayoutGrid size={20} color={G_DARK} />
+                  {venue.data ? `${COURTS.length} ${envLabel} Court${COURTS.length === 1 ? '' : 's'}` : '—'}
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.85rem 0', color: INK, fontWeight: 600 }}>
+                  <Wallet size={20} color={G_DARK} />
+                  {rateText} / hour
+                </div>
+              </div>
+              <button
+                onClick={() => onReserve()}
+                style={{ ...btnBase, width: '100%', backgroundColor: PINK, color: 'white', border: 'none' }}
+                onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#C31468' }}
+                onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = PINK }}
+              >
+                Check Availability &amp; Book <ArrowRight size={18} />
+              </button>
+              <p style={{ color: MUTED, fontSize: '0.8rem', textAlign: 'center', margin: '0.85rem 0 0', lineHeight: 1.5 }}>
+                Pay with GCash, Maya or QR Ph.
+              </p>
+            </Card>
+
+            <Card pad={cardPad}>
+              <CardHead icon={Clock} title="Opening Hours" />
+              {venue.loading && <LoadingBlock label="Loading hours…" pad="1.25rem" />}
+              {weekly && (
+                <div>
+                  {MONDAY_FIRST.map((dow, i) => {
+                    const value = dayValue(weekly[dow])
+                    return (
+                      <div key={dow} style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', padding: '0.65rem 0', borderTop: i === 0 ? 'none' : `1px solid ${LINE}`, fontSize: '0.92rem' }}>
+                        <span style={{ color: INK, fontWeight: 500 }}>{DAY_NAMES[dow]}</span>
+                        <span style={{ color: value === 'Closed' ? '#DC2626' : MUTED, whiteSpace: 'nowrap' }}>{value}</span>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </Card>
+          </aside>
+        </div>
+      </main>
 
       {/* FOOTER */}
-      <footer style={{ backgroundColor: '#081810', padding: isMobile ? '2.25rem 1.1rem 1.25rem' : '3rem 1.5rem 1.5rem' }}>
-        <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '2rem', marginBottom: '2.5rem' }}>
-            <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '0.875rem' }}>
-                <img src={logoImg} alt="logo" style={{ height: '32px', width: '32px', borderRadius: '50%', objectFit: 'cover' }} />
-                <span style={{ fontFamily: FONT_DISPLAY, color: 'white', fontWeight: 700, fontSize: '1rem' }}>PickleBella Park</span>
-              </div>
-              <p style={{ color: 'rgba(255,255,255,0.45)', fontSize: '0.8rem', lineHeight: 1.6 }}>Dink. Smash. Enjoy. Sultan Kudarat's friendliest pickleball courts — book online in seconds.</p>
-            </div>
-            {[
-              { h: 'Explore', links: [['Courts', '#courts'], ['How it Works', '#how'], ['Amenities', '#amenities'], ['Book Now', '#']] },
-              { h: 'Support', links: [['FAQs', '#'], ['Cancellation Policy', '#'], ['Contact Us', '#']] },
-              { h: 'Contact', links: [['Jamison St., Isulan, Sultan Kudarat', VENUE_MAPS_URL], ['(0917) 123-4567', 'tel:+639171234567'], ['hello@picklebella.ph', 'mailto:hello@picklebella.ph']] },
-            ].map((col) => (
-              <div key={col.h}>
-                <h4 style={{ color: 'white', fontSize: '0.85rem', fontWeight: 700, margin: '0 0 0.875rem' }}>{col.h}</h4>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                  {col.links.map(([label, href]) => (
-                    <a
-                      key={label}
-                      href={href}
-                      target={href.startsWith('http') ? '_blank' : undefined}
-                      rel={href.startsWith('http') ? 'noopener noreferrer' : undefined}
-                      onClick={label === 'Book Now' ? (e) => { e.preventDefault(); onReserve() } : undefined}
-                      style={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.8rem', textDecoration: 'none' }}
-                    >
-                      {label}
-                    </a>
-                  ))}
-                </div>
-              </div>
-            ))}
+      <footer style={{ backgroundColor: '#081810', padding: isMobile ? `1.5rem ${gutter}` : `1.75rem ${gutter}` }}>
+        <div style={{ maxWidth: '1200px', margin: '0 auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <img src={logoImg} alt="" style={{ height: '28px', width: '28px', borderRadius: '50%', objectFit: 'cover' }} />
+            <span style={{ color: 'rgba(255,255,255,0.45)', fontSize: '0.78rem' }}>© 2026 PickleBella Park</span>
           </div>
-          <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '1.25rem', display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem' }}>
-            <span style={{ color: 'rgba(255,255,255,0.35)', fontSize: '0.75rem' }}>© 2026 PickleBella Park. All rights reserved.</span>
-            <button onClick={onAdminSignIn} style={{ color: 'rgba(255,255,255,0.35)', fontSize: '0.75rem', background: 'none', border: 'none', cursor: 'pointer', fontFamily: FONT_BODY, padding: 0 }}>Admin</button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem', flexWrap: 'wrap' }}>
+            <a href="mailto:hello@picklebella.ph" style={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.78rem', textDecoration: 'none' }}>hello@picklebella.ph</a>
+            <button onClick={onAdminSignIn} style={{ color: 'rgba(255,255,255,0.35)', fontSize: '0.78rem', background: 'none', border: 'none', cursor: 'pointer', fontFamily: FONT_BODY, padding: 0 }}>Admin</button>
           </div>
         </div>
       </footer>
