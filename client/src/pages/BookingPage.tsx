@@ -639,8 +639,10 @@ export default function BookingPage({ user, initialCourtId, initialTab, onBack, 
                         </svg>
                         {isMobile ? '' : 'Calendar'}
                       </button>
-                      {/* The real input sits invisibly under the button; the button
-                          opens its native picker via showPicker(). */}
+                      {/* Desktop: the real input sits invisibly under the button, which
+                          opens its native picker via showPicker(). Mobile: iOS Safari
+                          ignores showPicker() on date inputs, so the invisible input
+                          sits ON TOP of the button and receives the tap directly. */}
                       <input
                         ref={dateInputRef}
                         type="date"
@@ -648,8 +650,12 @@ export default function BookingPage({ user, initialCourtId, initialTab, onBack, 
                         min={todayStr()}
                         onChange={(e) => goToDate(e.target.value)}
                         tabIndex={-1}
-                        aria-hidden
-                        style={{ position: 'absolute', right: 0, bottom: 0, width: '100%', height: '100%', opacity: 0, pointerEvents: 'none', border: 'none', padding: 0 }}
+                        aria-label="Jump to a date"
+                        style={{
+                          position: 'absolute', inset: 0, width: '100%', height: '100%', opacity: 0, border: 'none', padding: 0, margin: 0,
+                          boxSizing: 'border-box', fontSize: '16px', WebkitAppearance: 'none', appearance: 'none',
+                          zIndex: isMobile ? 1 : undefined, pointerEvents: isMobile ? 'auto' : 'none', cursor: 'pointer',
+                        }}
                       />
                     </div>
                   </div>
