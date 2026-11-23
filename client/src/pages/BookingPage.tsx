@@ -130,6 +130,8 @@ function DateStrip({ curDate, hours, onPick, isMobile }: { curDate: Date; hours?
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [curStr])
 
+  // Centre the selected day when the selection changes (not when the arrows
+  // page the window, which should leave the strip at its start).
   useEffect(() => {
     const el = scrollRef.current?.querySelector<HTMLElement>('[data-sel="1"]')
     const wrap = scrollRef.current
@@ -140,16 +142,17 @@ function DateStrip({ curDate, hours, onPick, isMobile }: { curDate: Date; hours?
     const wrapBox = wrap.getBoundingClientRect()
     const target = wrap.scrollLeft + (elBox.left - wrapBox.left) - wrap.clientWidth / 2 + elBox.width / 2
     wrap.scrollTo({ left: Math.max(0, target), behavior: 'smooth' })
-  }, [curStr, start])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [curStr])
 
   const days = Array.from({ length: STRIP_DAYS }, (_, i) => addDays(start, i))
   const atStart = dateStr(start) === todayS
 
   function shift(n: number) {
     const s = addDays(start, n)
-    const next = s < today ? today : s
-    setStart(next)
-    onPick(next)
+    // Only moves the window — the selected day stays put until one is tapped.
+    setStart(s < today ? today : s)
+    scrollRef.current?.scrollTo({ left: 0, behavior: 'smooth' })
   }
 
   function statusFor(d: Date) {
@@ -228,7 +231,7 @@ function DateStrip({ curDate, hours, onPick, isMobile }: { curDate: Date; hours?
               <span style={{ fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', opacity: sel ? 0.75 : 0.6 }}>
                 {isT ? 'Today' : DOW_SHORT[d.getDay()]}
               </span>
-              <span style={{ fontFamily: FONT_DISPLAY, fontSize: isMobile ? '1.25rem' : '1.45rem', fontWeight: 700, lineHeight: 1, textDecoration: st.closed && !sel ? 'line-through' : 'none', textDecorationThickness: '1.5px' }}>
+              <span style={{ fontFamily: FONT_BODY, fontSize: isMobile ? '1.2rem' : '1.35rem', fontWeight: 600, lineHeight: 1, fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.02em', textDecoration: st.closed && !sel ? 'line-through' : 'none', textDecorationThickness: '1.5px' }}>
                 {d.getDate()}
               </span>
               {/* Ball marker: lime = open, pink = special hours, hollow = closed */}
@@ -605,7 +608,7 @@ export default function BookingPage({ user, initialCourtId, initialTab, onBack, 
               {/* Date navigation */}
               <div style={{ padding: isMobile ? '0.8rem 0.9rem 0.7rem' : '0.95rem 1.25rem 0.85rem', borderBottom: '1px solid #F3F4F6', background: 'linear-gradient(180deg, #F7FBF2 0%, #FFFFFF 100%)' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '0.35rem' }}>
-                  <span style={{ fontFamily: FONT_DISPLAY, fontSize: isMobile ? '0.95rem' : '1.05rem', fontWeight: 700, color: G_DARK }}>
+                  <span style={{ fontFamily: FONT_BODY, fontSize: isMobile ? '0.95rem' : '1.05rem', fontWeight: 600, color: '#111827', letterSpacing: '-0.01em' }}>
                     {isMobile ? formatDateLabel(curDate).replace(/, \d{4}$/, '') : formatDateLabel(curDate)}
                   </span>
                   {holiday && (
