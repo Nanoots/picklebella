@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useRef, useState } from 'react'
-import { ArrowDown, ArrowRight, ArrowUpRight, MapPin, Navigation } from 'lucide-react'
+import { ArrowRight, ArrowUpRight, MapPin, Navigation } from 'lucide-react'
 import logoImg from '@/imports/opt/logo.webp'
 import heroLogoImg from '@/imports/opt/logo-hero.webp'
 import heroFallback1 from '@/imports/opt/Court123.webp'
@@ -196,20 +196,25 @@ export default function LandingPage({ user, onReserve, onSignIn, onSignOut, onAd
         {/* Bottom fade so the hero blends into the dark court board below */}
         <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg, rgba(0,0,0,0.35) 0%, rgba(0,0,0,0) 22%, rgba(0,0,0,0) 65%, rgba(10,36,19,0.9) 100%)' }} />
 
-        <div style={{ position: 'relative', zIndex: 1, width: '100%', maxWidth: '1280px', margin: '0 auto', padding: isMobile ? `7rem ${gutter} 2rem` : `9rem ${gutter} 3rem`, boxSizing: 'border-box' }}>
-          {status && (
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.55rem', padding: '0.4rem 0.9rem 0.4rem 0.75rem', borderRadius: '999px', backgroundColor: 'rgba(10,36,19,0.55)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,0.18)', color: 'white', fontSize: '0.82rem', fontWeight: 500, marginBottom: '1.4rem' }}>
-              <span className={status.open ? 'pb-live-dot' : undefined} style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: status.open ? LIME : '#F59E0B' }} />
-              {status.text}
-            </span>
-          )}
+        {/* Live status — pinned to the top-left corner, just under the nav */}
+        {status && (
+          <div style={{ position: 'absolute', zIndex: 2, top: isMobile ? '70px' : '88px', left: 0, right: 0, pointerEvents: 'none' }}>
+            <div style={{ maxWidth: '1280px', margin: '0 auto', padding: `0 ${gutter}` }}>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.55rem', padding: '0.4rem 0.9rem 0.4rem 0.75rem', borderRadius: '999px', backgroundColor: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,0.18)', color: 'white', fontSize: isMobile ? '0.76rem' : '0.82rem', fontWeight: 500, pointerEvents: 'auto' }}>
+                <span className={status.open ? 'pb-live-dot' : undefined} style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: status.open ? LIME : '#F59E0B' }} />
+                {status.text}
+              </span>
+            </div>
+          </div>
+        )}
 
+        <div style={{ position: 'relative', zIndex: 1, width: '100%', maxWidth: '1280px', margin: '0 auto', padding: isMobile ? `8rem ${gutter} 2rem` : `10rem ${gutter} 3rem`, boxSizing: 'border-box' }}>
           <h1 style={{ margin: 0, lineHeight: 0 }}>
             <img
               src={heroLogoImg}
               alt="PickleBella Park"
               decoding="async"
-              style={{ display: 'block', width: isMobile ? 'min(62vw, 240px)' : 'clamp(260px, 26vw, 380px)', height: 'auto', filter: 'drop-shadow(0 12px 32px rgba(0,0,0,0.5))' }}
+              style={{ display: 'block', width: isMobile ? 'min(42vw, 160px)' : 'clamp(170px, 15vw, 220px)', height: 'auto', filter: 'drop-shadow(0 12px 32px rgba(0,0,0,0.5))' }}
             />
           </h1>
 
@@ -227,10 +232,13 @@ export default function LandingPage({ user, onReserve, onSignIn, onSignOut, onAd
                   Reserve a court <ArrowRight size={18} />
                 </button>
                 <a
-                  href="#today"
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: '0.45rem', color: 'white', textDecoration: 'none', fontSize: '0.95rem', fontWeight: 500, padding: '0.9rem 0.5rem' }}
+                  href={VENUE_MAPS_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="pb-cta"
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '0.55rem', color: 'white', textDecoration: 'none', fontSize: '1rem', fontWeight: 600, padding: isMobile ? '0.9rem 1.5rem' : '1rem 1.75rem', borderRadius: '999px', border: '1.5px solid rgba(255,255,255,0.55)', backgroundColor: 'rgba(255,255,255,0.06)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)' }}
                 >
-                  See today's openings <ArrowDown size={16} />
+                  <Navigation size={17} /> Get directions
                 </a>
               </div>
             </div>
