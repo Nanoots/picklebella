@@ -199,7 +199,7 @@ export default function LandingPage({ user, onReserve, onSignIn, onSignOut, onAd
         {/* Live status — pinned to the top-left corner, just under the nav */}
         {status && (
           <div style={{ position: 'absolute', zIndex: 2, top: isMobile ? '70px' : '88px', left: 0, right: 0, pointerEvents: 'none' }}>
-            <div style={{ maxWidth: '1280px', margin: '0 auto', padding: `0 ${gutter}` }}>
+            <div style={{ maxWidth: '1280px', margin: '0 auto', padding: `0 ${gutter}`, textAlign: isMobile ? 'center' : undefined }}>
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.55rem', padding: '0.4rem 0.9rem 0.4rem 0.75rem', borderRadius: '999px', backgroundColor: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,0.18)', color: 'white', fontSize: isMobile ? '0.76rem' : '0.82rem', fontWeight: 500, pointerEvents: 'auto' }}>
                 <span className={status.open ? 'pb-live-dot' : undefined} style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: status.open ? LIME : '#F59E0B' }} />
                 {status.text}
@@ -214,16 +214,16 @@ export default function LandingPage({ user, onReserve, onSignIn, onSignOut, onAd
               src={heroLogoImg}
               alt="PickleBella Park"
               decoding="async"
-              style={{ display: 'block', width: isMobile ? 'min(54vw, 210px)' : 'clamp(230px, 20vw, 300px)', height: 'auto', marginLeft: isMobile ? '0.5rem' : '1.5rem', filter: 'drop-shadow(0 12px 32px rgba(0,0,0,0.5))' }}
+              style={{ display: 'block', width: isMobile ? 'min(54vw, 210px)' : 'clamp(230px, 20vw, 300px)', height: 'auto', margin: isMobile ? '0 auto' : '0 0 0 1.5rem', filter: 'drop-shadow(0 12px 32px rgba(0,0,0,0.5))' }}
             />
           </h1>
 
-          <div style={{ display: 'flex', flexDirection: isNarrow ? 'column' : 'row', alignItems: isNarrow ? 'flex-start' : 'flex-end', justifyContent: 'space-between', gap: isMobile ? '1.5rem' : '2rem', marginTop: isMobile ? '1.25rem' : '1.75rem' }}>
-            <div style={{ maxWidth: '520px' }}>
+          <div style={{ display: 'flex', flexDirection: isNarrow ? 'column' : 'row', alignItems: isMobile ? 'center' : isNarrow ? 'flex-start' : 'flex-end', justifyContent: 'space-between', gap: isMobile ? '1.5rem' : '2rem', marginTop: isMobile ? '1.25rem' : '1.75rem' }}>
+            <div style={{ maxWidth: '520px', textAlign: isMobile ? 'center' : undefined }}>
               <p style={{ color: 'rgba(255,255,255,0.8)', fontSize: isMobile ? '1rem' : '1.15rem', lineHeight: 1.6, margin: '0 0 1.6rem' }}>
                 Three outdoor courts in Isulan, Sultan Kudarat. Grab a slot, pay with GCash or Maya, and just show up with your paddle.
               </p>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem', alignItems: 'center' }}>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem', alignItems: 'center', justifyContent: isMobile ? 'center' : undefined }}>
                 <button
                   onClick={() => onReserve()}
                   className="pb-cta"
@@ -249,7 +249,7 @@ export default function LandingPage({ user, onReserve, onSignIn, onSignOut, onAd
                 { k: venue.data ? String(courts.length) : '—', v: 'Courts' },
                 { k: venue.data ? fmtMoney(minRate) : '—', v: 'From / hour' },
               ].map((f) => (
-                <div key={f.v}>
+                <div key={f.v} style={{ textAlign: isMobile ? 'center' : undefined }}>
                   <div style={{ fontFamily: FONT_DISPLAY, color: 'white', fontSize: isMobile ? '1.3rem' : '1.7rem', fontWeight: 700, lineHeight: 1.1 }}>{f.k}</div>
                   <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: '0.7rem', letterSpacing: '0.06em', textTransform: 'uppercase', marginTop: '4px', whiteSpace: 'nowrap' }}>{f.v}</div>
                 </div>
@@ -258,7 +258,7 @@ export default function LandingPage({ user, onReserve, onSignIn, onSignOut, onAd
           </div>
 
           {slides.length > 1 && (
-            <div style={{ display: 'flex', gap: '6px', marginTop: isMobile ? '1.75rem' : '2.5rem' }} aria-hidden="true">
+            <div style={{ display: 'flex', gap: '6px', justifyContent: isMobile ? 'center' : undefined, marginTop: isMobile ? '1.75rem' : '2.5rem' }} aria-hidden="true">
               {slides.map((_, i) => (
                 <span key={i} style={{ height: '3px', width: i === (show.incoming ?? show.index) ? '34px' : '14px', borderRadius: '3px', backgroundColor: i === (show.incoming ?? show.index) ? 'white' : 'rgba(255,255,255,0.35)', transition: 'all 0.6s ease' }} />
               ))}
