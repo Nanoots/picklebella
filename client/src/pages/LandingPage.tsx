@@ -214,7 +214,7 @@ export default function LandingPage({ user, onReserve, onSignIn, onSignOut, onAd
               src={heroLogoImg}
               alt="PickleBella Park"
               decoding="async"
-              style={{ display: 'block', width: isMobile ? 'min(42vw, 160px)' : 'clamp(170px, 15vw, 220px)', height: 'auto', filter: 'drop-shadow(0 12px 32px rgba(0,0,0,0.5))' }}
+              style={{ display: 'block', width: isMobile ? 'min(54vw, 210px)' : 'clamp(230px, 20vw, 300px)', height: 'auto', marginLeft: isMobile ? '0.5rem' : '1.5rem', filter: 'drop-shadow(0 12px 32px rgba(0,0,0,0.5))' }}
             />
           </h1>
 
