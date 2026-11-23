@@ -1,4 +1,5 @@
 import { lazy, Suspense, useEffect, useRef, useState } from 'react'
+import type { CSSProperties } from 'react'
 import logoImg from '@/imports/opt/logo.webp'
 import courtNoneImg from '@/imports/opt/Court123.webp'
 import courtAllImg from '@/imports/opt/Court_1_2_3.webp'
@@ -20,7 +21,7 @@ import { useSiteImages } from '../lib/siteImages'
 import { useIsMobile, useIsNarrow } from '../lib/useMediaQuery'
 import { ErrorBlock, LoadingBlock } from '../components/States'
 import { VENUE_MAPS_URL, VENUE_ADDRESS } from '../lib/venue'
-import { BLUE, AVAILABLE_GREEN, FONT_BODY, FONT_DISPLAY, G_DARK, PINK } from '../lib/theme'
+import { BLUE, AVAILABLE_GREEN, FONT_BODY, FONT_DISPLAY, G_DARK, LIME, PINK } from '../lib/theme'
 
 // maplibre-gl is heavy — loaded only once this card is actually rendered,
 // not folded into the page's own chunk.
@@ -95,6 +96,167 @@ function formatDateLabel(d: Date) {
   const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
   const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
   return `${days[d.getDay()]}, ${months[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`
+}
+
+const STRIP_DAYS = 14
+const DOW_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+const MONTH_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+
+function addDays(d: Date, n: number) {
+  const x = new Date(d.getFullYear(), d.getMonth(), d.getDate())
+  x.setDate(x.getDate() + n)
+  return x
+}
+
+/** A row of day "tickets" — each one a little court-pass with the weekday, the
+    date, and a ball marker showing whether the venue is open that day. The
+    selected ticket flips to deep green with a lime ball and a notched stub. */
+function DateStrip({ curDate, hours, onPick, isMobile }: { curDate: Date; hours?: HoursConfig; onPick: (d: Date) => void; isMobile: boolean }) {
+  const today = addDays(new Date(), 0)
+  const [start, setStart] = useState(today)
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const curStr = dateStr(curDate)
+  const todayS = dateStr(today)
+
+  // Keep the selected day inside the visible window (e.g. after using the
+  // calendar picker to jump weeks ahead).
+  useEffect(() => {
+    const end = addDays(start, STRIP_DAYS - 1)
+    const c = addDays(curDate, 0)
+    if (c < start || c > end) {
+      const s = addDays(c, -2)
+      setStart(s < today ? today : s)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [curStr])
+
+  useEffect(() => {
+    const el = scrollRef.current?.querySelector<HTMLElement>('[data-sel="1"]')
+    const wrap = scrollRef.current
+    if (!el || !wrap) return
+    const target = el.offsetLeft - wrap.clientWidth / 2 + el.clientWidth / 2
+    wrap.scrollTo({ left: Math.max(0, target), behavior: 'smooth' })
+  }, [curStr, start])
+
+  const days = Array.from({ length: STRIP_DAYS }, (_, i) => addDays(start, i))
+  const atStart = dateStr(start) === todayS
+
+  function shift(n: number) {
+    const s = addDays(start, n)
+    const next = s < today ? today : s
+    setStart(next)
+    onPick(next)
+  }
+
+  function statusFor(d: Date) {
+    const s = dateStr(d)
+    const hol = hours?.holidays.find((h) => h.date === s)
+    if (hol) return { closed: hol.closed, holiday: hol.label }
+    const w = hours?.weekly[d.getDay()]
+    return { closed: Boolean(w?.closed), holiday: null as string | null }
+  }
+
+  const cardW = isMobile ? 54 : 64
+  const navBtn = (disabled: boolean, filled: boolean): CSSProperties => ({
+    width: isMobile ? 34 : 38,
+    height: isMobile ? 34 : 38,
+    borderRadius: '50%',
+    border: filled ? 'none' : '1.5px solid #E5E7EB',
+    background: disabled ? '#F3F4F6' : filled ? G_DARK : 'white',
+    color: disabled ? '#D1D5DB' : filled ? LIME : G_DARK,
+    cursor: disabled ? 'default' : 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+    transition: 'transform 0.15s',
+  })
+
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '0.4rem' : '0.6rem' }}>
+      <button type="button" aria-label="Previous week" disabled={atStart} onClick={() => shift(-7)} style={navBtn(atStart, false)}>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6" /></svg>
+      </button>
+
+      <div
+        ref={scrollRef}
+        className="pb-datestrip"
+        style={{ flex: 1, minWidth: 0, display: 'flex', gap: isMobile ? '6px' : '8px', overflowX: 'auto', scrollbarWidth: 'none', padding: '14px 2px 6px', scrollSnapType: 'x proximity' }}
+      >
+        {days.map((d, i) => {
+          const s = dateStr(d)
+          const sel = s === curStr
+          const isT = s === todayS
+          const st = statusFor(d)
+          const newMonth = i === 0 || d.getDate() === 1
+          return (
+            <button
+              key={s}
+              type="button"
+              data-sel={sel ? '1' : undefined}
+              onClick={() => onPick(d)}
+              title={st.holiday ?? (st.closed ? 'Closed' : undefined)}
+              style={{
+                position: 'relative',
+                flex: `0 0 ${cardW}px`,
+                scrollSnapAlign: 'center',
+                padding: isMobile ? '9px 0 8px' : '10px 0 9px',
+                borderRadius: '14px',
+                border: sel ? `1.5px solid ${G_DARK}` : `1.5px ${isT ? 'dashed' : 'solid'} ${isT ? LIME : '#E5E7EB'}`,
+                background: sel ? `linear-gradient(160deg, ${G_DARK} 0%, #1A5C30 100%)` : 'white',
+                color: sel ? 'white' : st.closed ? '#C4C8CE' : '#111827',
+                cursor: 'pointer',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: '3px',
+                fontFamily: FONT_BODY,
+                boxShadow: sel ? '0 8px 18px -8px rgba(15,58,28,0.55)' : 'none',
+                transform: sel ? 'translateY(-2px)' : 'none',
+                transition: 'transform 0.18s, box-shadow 0.18s, background 0.18s',
+              }}
+            >
+              {newMonth && (
+                <span style={{ position: 'absolute', top: '-11px', left: '50%', transform: 'translateX(-50%)', fontSize: '0.56rem', fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase', color: sel ? G_DARK : PINK, background: 'white', padding: '0 5px', borderRadius: '6px', whiteSpace: 'nowrap' }}>
+                  {MONTH_SHORT[d.getMonth()]}
+                </span>
+              )}
+              <span style={{ fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', opacity: sel ? 0.75 : 0.6 }}>
+                {isT ? 'Today' : DOW_SHORT[d.getDay()]}
+              </span>
+              <span style={{ fontFamily: FONT_DISPLAY, fontSize: isMobile ? '1.25rem' : '1.45rem', fontWeight: 700, lineHeight: 1, textDecoration: st.closed && !sel ? 'line-through' : 'none', textDecorationThickness: '1.5px' }}>
+                {d.getDate()}
+              </span>
+              {/* Ball marker: lime = open, pink = special hours, hollow = closed */}
+              <span
+                aria-hidden
+                style={{
+                  marginTop: '2px',
+                  width: sel ? 9 : 7,
+                  height: sel ? 9 : 7,
+                  borderRadius: '50%',
+                  background: st.closed ? 'transparent' : st.holiday ? PINK : LIME,
+                  border: st.closed ? `1.5px solid ${sel ? 'rgba(255,255,255,0.5)' : '#D1D5DB'}` : 'none',
+                  boxShadow: sel && !st.closed ? `0 0 0 3px rgba(122,194,49,0.25)` : 'none',
+                }}
+              />
+              {/* Ticket-stub notches on the selected day */}
+              {sel && (
+                <>
+                  <span aria-hidden style={{ position: 'absolute', left: '-5px', top: '58%', width: 8, height: 8, borderRadius: '50%', background: 'white' }} />
+                  <span aria-hidden style={{ position: 'absolute', right: '-5px', top: '58%', width: 8, height: 8, borderRadius: '50%', background: 'white' }} />
+                </>
+              )}
+            </button>
+          )
+        })}
+      </div>
+
+      <button type="button" aria-label="Next week" onClick={() => shift(7)} style={navBtn(false, true)}>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6" /></svg>
+      </button>
+    </div>
+  )
 }
 
 // Only shows hours the venue is actually open on that date (admin-configurable
@@ -215,17 +377,6 @@ export default function BookingPage({ user, initialCourtId, initialTab, onBack, 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ds, gridReady, activeTab])
 
-  function prevDay() {
-    if (isToday) return
-    const d = new Date(curDate)
-    d.setDate(d.getDate() - 1)
-    setCurDate(d)
-  }
-  function nextDay() {
-    const d = new Date(curDate)
-    d.setDate(d.getDate() + 1)
-    setCurDate(d)
-  }
   function goToDate(value: string) {
     if (!value) return
     setCurDate(new Date(value + 'T00:00:00'))
@@ -237,11 +388,6 @@ export default function BookingPage({ user, initialCourtId, initialTab, onBack, 
   }
   function slotPriceFor(hour: number, courtId: string) {
     return availability.data?.[courtId]?.prices[hour] ?? 0
-  }
-  /** True when this hour is priced above the court's standard rate. Derived from
-      the server's own numbers rather than re-implementing the peak rules here. */
-  function isPeakHour(hour: number, court: Court) {
-    return slotPriceFor(hour, court.id) > court.rate
   }
   function isOwnBooking(hour: number, courtId: string) {
     return (myBookings.data ?? []).some(
@@ -448,43 +594,46 @@ export default function BookingPage({ user, initialCourtId, initialTab, onBack, 
           ) : (
             <>
               {/* Date navigation */}
-              <div style={{ padding: isMobile ? '0.7rem 0.9rem' : '0.75rem 1.25rem', borderBottom: '1px solid #F3F4F6', display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
-                <div style={{ position: 'relative', width: '16px', height: '16px', flexShrink: 0, cursor: 'pointer' }} title="Pick a date">
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#6B7280" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <rect x="3" y="4" width="18" height="18" rx="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" />
-                  </svg>
-                  <input
-                    type="date"
-                    value={ds}
-                    min={todayStr()}
-                    onChange={(e) => goToDate(e.target.value)}
-                    style={{ position: 'absolute', inset: 0, opacity: 0, cursor: 'pointer', width: '100%', height: '100%', border: 'none', padding: 0 }}
-                  />
-                </div>
-                <span style={{ fontSize: isMobile ? '0.82rem' : '0.9rem', fontWeight: 700, color: '#111827' }}>
-                  {isMobile ? formatDateLabel(curDate).replace(/, \d{4}$/, '') : formatDateLabel(curDate)}
-                </span>
-                {gridReady && availability.loading && (
-                  <span style={{ fontSize: '0.7rem', color: '#9CA3AF' }}>refreshing…</span>
-                )}
-                {isToday && (
-                  <span style={{ backgroundColor: '#DBEAFE', color: BLUE, fontSize: '0.65rem', fontWeight: 700, padding: '2px 8px', borderRadius: '999px' }}>Today</span>
-                )}
-                {holiday && (
-                  <span style={{ backgroundColor: '#FEF3C7', color: '#92400E', fontSize: '0.65rem', fontWeight: 700, padding: '2px 8px', borderRadius: '999px' }}>{holiday.label}</span>
-                )}
-                <div style={{ marginLeft: 'auto', display: 'flex', gap: '4px' }}>
-                  {[{ fn: prevDay, icon: '‹', disabled: isToday }, { fn: nextDay, icon: '›', disabled: false }].map((btn, i) => (
-                    <button
-                      key={i}
-                      onClick={btn.fn}
-                      disabled={btn.disabled}
-                      style={{ width: '28px', height: '28px', borderRadius: '7px', border: '1px solid #E5E7EB', background: btn.disabled ? '#F9FAFB' : 'white', color: btn.disabled ? '#D1D5DB' : '#374151', cursor: btn.disabled ? 'default' : 'pointer', fontSize: '1.1rem', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 500 }}
+              <div style={{ padding: isMobile ? '0.8rem 0.9rem 0.7rem' : '0.95rem 1.25rem 0.85rem', borderBottom: '1px solid #F3F4F6', background: 'linear-gradient(180deg, #F7FBF2 0%, #FFFFFF 100%)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '0.35rem' }}>
+                  <span style={{ fontFamily: FONT_DISPLAY, fontSize: isMobile ? '0.95rem' : '1.05rem', fontWeight: 700, color: G_DARK }}>
+                    {isMobile ? formatDateLabel(curDate).replace(/, \d{4}$/, '') : formatDateLabel(curDate)}
+                  </span>
+                  {holiday && (
+                    <span style={{ backgroundColor: '#FCE7F3', color: PINK, fontSize: '0.65rem', fontWeight: 700, padding: '2px 8px', borderRadius: '999px' }}>{holiday.label}</span>
+                  )}
+                  {gridReady && availability.loading && (
+                    <span style={{ fontSize: '0.7rem', color: '#9CA3AF' }}>refreshing…</span>
+                  )}
+                  <div style={{ marginLeft: 'auto', display: 'flex', gap: '6px', alignItems: 'center' }}>
+                    {!isToday && (
+                      <button
+                        type="button"
+                        onClick={() => setCurDate(new Date())}
+                        style={{ border: `1.5px solid ${G_DARK}`, background: 'white', color: G_DARK, borderRadius: '999px', padding: '4px 12px', fontSize: '0.72rem', fontWeight: 700, cursor: 'pointer', fontFamily: FONT_BODY }}
+                      >
+                        ↺ Today
+                      </button>
+                    )}
+                    <label
+                      title="Jump to a date"
+                      style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: '5px', background: G_DARK, color: 'white', borderRadius: '999px', padding: '5px 12px', fontSize: '0.72rem', fontWeight: 700, cursor: 'pointer' }}
                     >
-                      {btn.icon}
-                    </button>
-                  ))}
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={LIME} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                        <rect x="3" y="4" width="18" height="18" rx="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" />
+                      </svg>
+                      {isMobile ? '' : 'Calendar'}
+                      <input
+                        type="date"
+                        value={ds}
+                        min={todayStr()}
+                        onChange={(e) => goToDate(e.target.value)}
+                        style={{ position: 'absolute', inset: 0, opacity: 0, cursor: 'pointer', width: '100%', height: '100%', border: 'none', padding: 0 }}
+                      />
+                    </label>
+                  </div>
                 </div>
+                <DateStrip curDate={curDate} hours={venue.data?.hours} onPick={setCurDate} isMobile={isMobile} />
               </div>
 
               {/* Grid table */}
@@ -546,7 +695,6 @@ export default function BookingPage({ user, initialCourtId, initialTab, onBack, 
                             const own = status === 'booked' && isOwnBooking(hour, court.id)
                             const clickable = status === 'available'
                             const slotPrice = slotPriceFor(hour, court.id)
-                            const peak = isPeakHour(hour, court)
 
                             let badgeStyle: React.CSSProperties = { backgroundColor: 'white', border: '1.5px solid #E5E7EB' }
                             let content: React.ReactNode = null
@@ -580,7 +728,6 @@ export default function BookingPage({ user, initialCourtId, initialTab, onBack, 
                                   <span style={{ display: 'block', color: AVAILABLE_GREEN, fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.03em' }}>AVAILABLE</span>
                                   <span style={{ display: 'block', color: '#9CA3AF', fontSize: '0.65rem' }}>
                                     {fmtMoney(slotPrice)}
-                                    {peak && <span style={{ color: PINK, fontWeight: 700 }}> · PEAK</span>}
                                   </span>
                                 </span>
                               )
