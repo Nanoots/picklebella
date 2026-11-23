@@ -1,6 +1,7 @@
 import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import { ArrowDown, ArrowRight, ArrowUpRight, MapPin, Navigation } from 'lucide-react'
 import logoImg from '@/imports/opt/logo.webp'
+import heroLogoImg from '@/imports/opt/logo-hero.webp'
 import heroFallback1 from '@/imports/opt/Court123.webp'
 import heroFallback2 from '@/imports/opt/Court_1_2_3.webp'
 import type { User } from '../App'
@@ -183,7 +184,17 @@ export default function LandingPage({ user, onReserve, onSignIn, onSignOut, onAd
             style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', opacity: show.shown ? 1 : 0, transform: show.shown ? 'scale(1)' : 'scale(1.04)', transition: `opacity ${FADE_MS}ms ease, transform ${FADE_MS}ms ease` }}
           />
         )}
-        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg, rgba(10,36,19,0.5) 0%, rgba(10,36,19,0.05) 28%, rgba(10,36,19,0.45) 60%, rgba(10,36,19,0.95) 100%)' }} />
+        {/* Black from the left, fading out toward the right of the photo */}
+        <div
+          style={{
+            position: 'absolute', inset: 0,
+            background: isMobile
+              ? 'linear-gradient(90deg, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.55) 60%, rgba(0,0,0,0.35) 100%)'
+              : 'linear-gradient(90deg, #000 0%, rgba(0,0,0,0.92) 22%, rgba(0,0,0,0.6) 45%, rgba(0,0,0,0.15) 75%, rgba(0,0,0,0) 100%)',
+          }}
+        />
+        {/* Bottom fade so the hero blends into the dark court board below */}
+        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg, rgba(0,0,0,0.35) 0%, rgba(0,0,0,0) 22%, rgba(0,0,0,0) 65%, rgba(10,36,19,0.9) 100%)' }} />
 
         <div style={{ position: 'relative', zIndex: 1, width: '100%', maxWidth: '1280px', margin: '0 auto', padding: isMobile ? `7rem ${gutter} 2rem` : `9rem ${gutter} 3rem`, boxSizing: 'border-box' }}>
           {status && (
@@ -193,8 +204,13 @@ export default function LandingPage({ user, onReserve, onSignIn, onSignOut, onAd
             </span>
           )}
 
-          <h1 style={{ fontFamily: FONT_DISPLAY, color: 'white', fontSize: isMobile ? 'clamp(2.8rem, 14vw, 3.6rem)' : 'clamp(4rem, 8.5vw, 7.25rem)', fontWeight: 800, lineHeight: 0.95, letterSpacing: '-0.035em', margin: 0, maxWidth: '12ch' }}>
-            Dink. <span style={{ color: LIME }}>Smash.</span><br />Enjoy.
+          <h1 style={{ margin: 0, lineHeight: 0 }}>
+            <img
+              src={heroLogoImg}
+              alt="PickleBella Park"
+              decoding="async"
+              style={{ display: 'block', width: isMobile ? 'min(62vw, 240px)' : 'clamp(260px, 26vw, 380px)', height: 'auto', filter: 'drop-shadow(0 12px 32px rgba(0,0,0,0.5))' }}
+            />
           </h1>
 
           <div style={{ display: 'flex', flexDirection: isNarrow ? 'column' : 'row', alignItems: isNarrow ? 'flex-start' : 'flex-end', justifyContent: 'space-between', gap: isMobile ? '1.5rem' : '2rem', marginTop: isMobile ? '1.25rem' : '1.75rem' }}>
@@ -224,7 +240,6 @@ export default function LandingPage({ user, onReserve, onSignIn, onSignOut, onAd
               {[
                 { k: venue.data ? String(courts.length) : '—', v: 'Courts' },
                 { k: venue.data ? fmtMoney(minRate) : '—', v: 'From / hour' },
-                { k: '8', v: 'Players / booking' },
               ].map((f) => (
                 <div key={f.v}>
                   <div style={{ fontFamily: FONT_DISPLAY, color: 'white', fontSize: isMobile ? '1.3rem' : '1.7rem', fontWeight: 700, lineHeight: 1.1 }}>{f.k}</div>
